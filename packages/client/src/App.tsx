@@ -7,22 +7,28 @@ import {
   BattlePlayer, 
   BattleData,
   Profession,
-  Organization,
-  Boss,
-  CardInstance
-} from 'shared'
+  Organization
+} from '@card-game/shared'
 import { LoginScreen } from './components/LoginScreen'
 import { LobbyScreen } from './components/LobbyScreen'
 import { RoomScreen } from './components/RoomScreen'
 import { BattleScreen } from './components/BattleScreen'
+import { WorldMap } from './components/WorldMap'
 import './App.css'
 
-const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io('http://localhost:3000');
+// 根据环境选择服务器地址
+const SERVER_URL = import.meta.env.PROD ? '' : 'http://localhost:3000';
+const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io(SERVER_URL);
+
+// 视图类型
+type ViewType = 'login' | 'world' | 'lobby' | 'room' | 'battle';
 
 function App() {
   // App State
-  const [view, setView] = useState<'login' | 'lobby' | 'room' | 'battle'>('login');
+  const [view, setView] = useState<ViewType>('login');
   const [playerId, setPlayerId] = useState<string | null>(null);
+  const [playerName, setPlayerName] = useState<string>('');
+  const [playerProfession, setPlayerProfession] = useState<Profession>(Profession.KNIGHT);
   const [rooms, setRooms] = useState<GameRoom[]>([]);
   const [currentRoom, setCurrentRoom] = useState<GameRoom | null>(null);
   const [battleData, setBattleData] = useState<BattleData | null>(null);
@@ -30,38 +36,38 @@ function App() {
 
   useEffect(() => {
     // Socket Event Listeners
-    socket.on('connection:success', ({ playerId }) => {
+    socket.on('connection:success', ({ playerId }: { playerId: string }) => {
       setPlayerId(playerId);
-      setView('lobby');
+      setView('world'); // 登录后进入世界地图
     });
 
-    socket.on('lobby:roomList', ({ rooms }) => {
+    socket.on('lobby:roomList', ({ rooms }: { rooms: GameRoom[] }) => {
       setRooms(rooms);
     });
 
-    socket.on('lobby:roomCreated', ({ room }) => {
+    socket.on('lobby:roomCreated', (_data: { room: GameRoom }) => {
       // If I created it, I join it automatically via room:joined
     });
 
-    socket.on('room:joined', ({ room, player }) => {
+    socket.on('room:joined', ({ room }: { room: GameRoom; player: BattlePlayer }) => {
       setCurrentRoom(room);
       // Convert map to array for easier rendering
       // Note: In real app, we might want to keep the map or handle this better
       // For now, we rely on room:playerJoined to update the list or re-fetch
-      setPlayers(Object.values(room.players || {}));
+      setPlayers(Object.values(room.players || {}) as BattlePlayer[]);
       setView('room');
     });
 
-    socket.on('room:playerJoined', ({ player }) => {
+    socket.on('room:playerJoined', ({ player }: { player: BattlePlayer }) => {
       setPlayers(prev => [...prev, player]);
-      setCurrentRoom(prev => {
+      setCurrentRoom((prev: GameRoom | null) => {
         if (!prev) return null;
         // Deep update needed in real app
         return { ...prev }; 
       });
     });
 
-    socket.on('battle:start', ({ boss, players, turnOrder }) => {
+    socket.on('battle:start', ({ boss, players, turnOrder }: { boss: BattleData['boss']; players: BattlePlayer[]; turnOrder: string[] }) => {
       setBattleData({
         boss,
         currentRound: 1,
@@ -78,9 +84,9 @@ function App() {
       setView('battle');
     });
 
-    socket.on('battle:cardPlayed', (data) => {
+    socket.on('battle:cardPlayed', (data: { bossHealth: number; bossRage: number }) => {
       // Update battle state (boss health, etc)
-      setBattleData(prev => {
+      setBattleData((prev: BattleData | null) => {
         if (!prev) return null;
         return {
           ...prev,
@@ -93,8 +99,8 @@ function App() {
       });
     });
 
-    socket.on('battle:bossRevive', (data) => {
-      setBattleData(prev => {
+    socket.on('battle:bossRevive', (data: { newHealth: number; newAttack: number; reviveCount: number }) => {
+      setBattleData((prev: BattleData | null) => {
         if (!prev) return null;
         return {
           ...prev,
@@ -120,6 +126,8 @@ function App() {
 
   // Actions
   const handleRegister = (username: string, profession: Profession, organization: Organization) => {
+    setPlayerName(username);
+    setPlayerProfession(profession);
     socket.emit('player:register', { username, password: '123', profession, organization });
   };
 
@@ -149,21 +157,48 @@ function App() {
     socket.emit('battle:endTurn');
   };
 
-  const handleBackToLogin = () => {
-    setView('login');
-    setPlayerId(null);
+  // 从世界地图进入大厅
+  const handleEnterLobby = () => {
+    setView('lobby');
+  };
+
+  // 从大厅返回世界
+  const handleBackToWorld = () => {
+    setView('world');
+  };
+
+  // 职业对应的精灵图标
+  const getProfessionSprite = (prof: Profession): string => {
+    const sprites: Record<Profession, string> = {
+      [Profession.KNIGHT]: '🛡️',
+      [Profession.SWORDSMAN]: '⚔️',
+      [Profession.SORCERER]: '🔮',
+      [Profession.GUNNER]: '🔫',
+      [Profession.ASSASSIN]: '🗡️',
+    };
+    return sprites[prof] || '👤';
   };
 
   return (
     <div className="App">
       {view === 'login' && <LoginScreen onRegister={handleRegister} />}
       
+      {view === 'world' && playerId && (
+        <WorldMap 
+          playerName={playerName}
+          playerId={playerId}
+          playerSprite={getProfessionSprite(playerProfession)}
+          socket={socket}
+          onEnterBattle={handleEnterLobby}
+        />
+      )}
+      
       {view === 'lobby' && (
         <LobbyScreen 
           rooms={rooms} 
           onCreateRoom={handleCreateRoom} 
           onJoinRoom={handleJoinRoom}
-          onBack={handleBackToLogin}
+          onBack={handleBackToWorld}
         />
       )}
 

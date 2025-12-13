@@ -8,11 +8,27 @@ import { GameRoom, BattleResult } from './game';
 import { Boss, BossAction } from './boss';
 import { CardInstance } from './card';
 
+// 世界地图上的玩家状态
+export interface WorldPlayer {
+  id: string;
+  username: string;
+  sprite: string;
+  position: { x: number; y: number };
+  direction: 'up' | 'down' | 'left' | 'right';
+  mapId: string;
+}
+
 // ==================== 服务器发送给客户端的事件 ====================
 export interface ServerToClientEvents {
   // 连接相关
   'connection:success': (data: { playerId: string }) => void;
   'connection:error': (data: { message: string }) => void;
+  
+  // 世界地图相关
+  'world:players': (data: { players: WorldPlayer[] }) => void;
+  'world:playerJoined': (data: { player: WorldPlayer }) => void;
+  'world:playerLeft': (data: { playerId: string }) => void;
+  'world:playerMoved': (data: { playerId: string; position: { x: number; y: number }; direction: 'up' | 'down' | 'left' | 'right' }) => void;
   
   // 玩家相关
   'player:info': (data: { player: Player }) => void;
@@ -122,6 +138,11 @@ export interface ClientToServerEvents {
   
   // 聊天
   'chat:send': (data: { message: string }) => void;
+  
+  // 世界地图相关
+  'world:join': (data: { mapId: string; position: { x: number; y: number }; direction: 'up' | 'down' | 'left' | 'right'; sprite: string }) => void;
+  'world:leave': () => void;
+  'world:move': (data: { position: { x: number; y: number }; direction: 'up' | 'down' | 'left' | 'right' }) => void;
 }
 
 // ==================== Socket间事件（服务器内部） ====================

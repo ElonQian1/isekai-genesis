@@ -8,7 +8,8 @@
     "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "shared": ["../shared/src"]
+      "@card-game/shared": ["../shared/src"],
+      "@card-game/shared/*": ["../shared/src/*"]
     }
   },
   "include": ["src"]

@@ -8,8 +8,8 @@ import {
   GAME_MODE_CONFIG,
   Organization,
   OrganizationFormation
-} from 'shared';
-import { v4 as uuidv4 } from 'uuid';
+} from '@card-game/shared';
+import { randomUUID } from 'crypto';
 
 export class RoomService {
   private rooms: Map<string, GameRoom> = new Map();
@@ -24,7 +24,7 @@ export class RoomService {
     const config = GAME_MODE_CONFIG[mode];
     
     const room: GameRoom = {
-      id: uuidv4(),
+      id: randomUUID(),
       name,
       mode,
       state: GameState.WAITING,

@@ -1,0 +1,141 @@
+/* ========================================
+   大厅界面 - 像素风格样式
+   ======================================== */
+
+.pixel-lobby-screen {
+  min-height: 100vh;
+  padding: 20px;
+  background: linear-gradient(180deg, #1a1c2c 0%, #29366f 100%);
+}
+
+/* 顶部导航 */
+.pixel-lobby-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 4px solid var(--pixel-border-light);
+}
+
+.lobby-title {
+  text-align: center;
+}
+
+.lobby-title h2 {
+  margin: 0;
+}
+
+.lobby-title span {
+  color: var(--pixel-gray-light);
+}
+
+/* 房间列表 */
+.pixel-room-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+/* 空状态 */
+.pixel-empty-state {
+  text-align: center;
+  padding: 48px 24px;
+}
+
+.empty-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+  animation: pixel-float 2s ease-in-out infinite;
+}
+
+/* 房间卡片 */
+.pixel-room-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.pixel-room-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 
+    inset -4px -4px 0 0 var(--pixel-border-dark),
+    inset 4px 4px 0 0 rgba(255,255,255,0.1),
+    12px 12px 0 0 rgba(0,0,0,0.4);
+}
+
+.room-card-left {
+  flex-shrink: 0;
+}
+
+.room-icon {
+  width: 56px;
+  height: 56px;
+  background: var(--pixel-bg-dark);
+  border: 3px solid var(--pixel-gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+}
+
+.room-card-center {
+  flex: 1;
+  min-width: 0;
+}
+
+.room-card-center h3 {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+}
+
+.room-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.room-card-right {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.room-player-count {
+  color: var(--pixel-cyan);
+}
+
+/* 模式描述 */
+.mode-desc {
+  margin-top: 8px;
+  color: var(--pixel-gray-light);
+  font-style: italic;
+}
+
+/* 响应式 */
+@media (max-width: 640px) {
+  .pixel-lobby-header {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .pixel-room-card {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .room-card-right {
+    align-items: center;
+    width: 100%;
+  }
+  
+  .room-card-right .pixel-btn {
+    width: 100%;
+  }
+}

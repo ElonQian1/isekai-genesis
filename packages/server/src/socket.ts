@@ -13,17 +13,21 @@ import {
   PROFESSION_BASE_STATS,
   PROFESSION_TALENTS,
   WEEKLY_BOSSES,
-  createBossInstance
-} from 'shared';
+  createBossInstance,
+  WorldPlayer
+} from '@card-game/shared';
 import { RoomService } from './services/RoomService';
 import { BattleService } from './services/BattleService';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 
 const roomService = new RoomService();
 const battleService = new BattleService();
 
 // 模拟数据库
 const players = new Map<string, Player>();
+
+// 世界地图上的玩家
+const worldPlayers = new Map<string, WorldPlayer>();
 
 export function setupSocketHandlers(io: Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>) {
   
@@ -32,7 +36,7 @@ export function setupSocketHandlers(io: Server<ClientToServerEvents, ServerToCli
 
     // 1. 注册/登录 (简化版)
     socket.on('player:register', ({ username, profession, organization }) => {
-      const playerId = uuidv4();
+      const playerId = randomUUID();
       const newPlayer: Player = {
         id: playerId,
         odAccountId: 'test_account',
@@ -199,7 +203,74 @@ export function setupSocketHandlers(io: Server<ClientToServerEvents, ServerToCli
       });
     });
 
+    // ==================== 世界地图功能 ====================
+    
+    // 加入世界地图
+    socket.on('world:join', ({ mapId, position, direction, sprite }) => {
+      const player = players.get(socket.id);
+      if (!player) return;
+
+      const worldPlayer: WorldPlayer = {
+        id: socket.data.playerId!,
+        username: socket.data.username!,
+        sprite: sprite || '🧑',
+        position,
+        direction,
+        mapId
+      };
+
+      worldPlayers.set(socket.id, worldPlayer);
+      socket.join(`world:${mapId}`);
+
+      console.log(`Player ${worldPlayer.username} joined world map ${mapId} at (${position.x}, ${position.y})`);
+
+      // 发送当前地图上的所有玩家给新加入的玩家
+      const playersInMap = Array.from(worldPlayers.values()).filter(p => p.mapId === mapId);
+      socket.emit('world:players', { players: playersInMap });
+
+      // 通知地图上的其他玩家有新玩家加入
+      socket.to(`world:${mapId}`).emit('world:playerJoined', { player: worldPlayer });
+    });
+
+    // 离开世界地图
+    socket.on('world:leave', () => {
+      const worldPlayer = worldPlayers.get(socket.id);
+      if (!worldPlayer) return;
+
+      const mapId = worldPlayer.mapId;
+      worldPlayers.delete(socket.id);
+      socket.leave(`world:${mapId}`);
+
+      console.log(`Player ${worldPlayer.username} left world map ${mapId}`);
+
+      // 通知其他玩家
+      socket.to(`world:${mapId}`).emit('world:playerLeft', { playerId: worldPlayer.id });
+    });
+
+    // 玩家移动
+    socket.on('world:move', ({ position, direction }) => {
+      const worldPlayer = worldPlayers.get(socket.id);
+      if (!worldPlayer) return;
+
+      worldPlayer.position = position;
+      worldPlayer.direction = direction;
+
+      // 广播给同一地图的其他玩家
+      socket.to(`world:${worldPlayer.mapId}`).emit('world:playerMoved', {
+        playerId: worldPlayer.id,
+        position,
+        direction
+      });
+    });
+
     socket.on('disconnect', () => {
+      // 处理世界地图离开
+      const worldPlayer = worldPlayers.get(socket.id);
+      if (worldPlayer) {
+        socket.to(`world:${worldPlayer.mapId}`).emit('world:playerLeft', { playerId: worldPlayer.id });
+        worldPlayers.delete(socket.id);
+      }
+
       if (socket.data.roomId) {
         roomService.removePlayerFromRoom(socket.data.roomId, socket.data.playerId!);
         io.emit('lobby:roomList', { rooms: roomService.getAllRooms() });
