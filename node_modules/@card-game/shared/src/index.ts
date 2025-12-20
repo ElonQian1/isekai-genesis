@@ -9,6 +9,7 @@ export * from './types/card';
 export * from './types/boss';
 export * from './types/game';
 export * from './types/socket';
+export * from './types/map';
 
 // 导出游戏常量
 export const GAME_CONFIG = {

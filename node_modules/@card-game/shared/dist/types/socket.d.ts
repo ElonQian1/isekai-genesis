@@ -6,12 +6,54 @@ import { Player, BattlePlayer } from './player';
 import { GameRoom, BattleResult } from './game';
 import { Boss, BossAction } from './boss';
 import { CardInstance } from './card';
+export interface WorldPlayer {
+    id: string;
+    username: string;
+    sprite: string;
+    position: {
+        x: number;
+        y: number;
+    };
+    direction: 'up' | 'down' | 'left' | 'right';
+    mapId: string;
+}
+export interface PrivateMessage {
+    senderId: string;
+    senderName: string;
+    receiverId: string;
+    message: string;
+    timestamp: Date;
+}
+export interface TeamInvite {
+    inviteId: string;
+    inviterId: string;
+    inviterName: string;
+    targetId: string;
+    timestamp: Date;
+}
 export interface ServerToClientEvents {
     'connection:success': (data: {
         playerId: string;
     }) => void;
     'connection:error': (data: {
         message: string;
+    }) => void;
+    'world:players': (data: {
+        players: WorldPlayer[];
+    }) => void;
+    'world:playerJoined': (data: {
+        player: WorldPlayer;
+    }) => void;
+    'world:playerLeft': (data: {
+        playerId: string;
+    }) => void;
+    'world:playerMoved': (data: {
+        playerId: string;
+        position: {
+            x: number;
+            y: number;
+        };
+        direction: 'up' | 'down' | 'left' | 'right';
     }) => void;
     'player:info': (data: {
         player: Player;
@@ -123,6 +165,41 @@ export interface ServerToClientEvents {
         timestamp: Date;
         isSystem: boolean;
     }) => void;
+    'chat:privateMessage': (data: {
+        senderId: string;
+        senderName: string;
+        message: string;
+        timestamp: Date;
+    }) => void;
+    'chat:privateMessageSent': (data: {
+        receiverId: string;
+        receiverName: string;
+        message: string;
+        timestamp: Date;
+    }) => void;
+    'chat:privateError': (data: {
+        message: string;
+    }) => void;
+    'team:inviteReceived': (data: {
+        inviteId: string;
+        inviterId: string;
+        inviterName: string;
+    }) => void;
+    'team:inviteSent': (data: {
+        targetId: string;
+        targetName: string;
+    }) => void;
+    'team:inviteAccepted': (data: {
+        playerId: string;
+        playerName: string;
+    }) => void;
+    'team:inviteDeclined': (data: {
+        playerId: string;
+        playerName: string;
+    }) => void;
+    'team:inviteError': (data: {
+        message: string;
+    }) => void;
 }
 export interface ClientToServerEvents {
     'player:login': (data: {
@@ -168,6 +245,36 @@ export interface ClientToServerEvents {
     'battle:useTalent': () => void;
     'chat:send': (data: {
         message: string;
+    }) => void;
+    'world:join': (data: {
+        mapId: string;
+        position: {
+            x: number;
+            y: number;
+        };
+        direction: 'up' | 'down' | 'left' | 'right';
+        sprite: string;
+    }) => void;
+    'world:leave': () => void;
+    'world:move': (data: {
+        position: {
+            x: number;
+            y: number;
+        };
+        direction: 'up' | 'down' | 'left' | 'right';
+    }) => void;
+    'chat:sendPrivate': (data: {
+        targetId: string;
+        message: string;
+    }) => void;
+    'team:invite': (data: {
+        targetId: string;
+    }) => void;
+    'team:acceptInvite': (data: {
+        inviteId: string;
+    }) => void;
+    'team:declineInvite': (data: {
+        inviteId: string;
     }) => void;
 }
 export interface InterServerEvents {

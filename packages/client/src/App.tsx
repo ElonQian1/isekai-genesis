@@ -13,7 +13,8 @@ import { LoginScreen } from './components/LoginScreen'
 import { LobbyScreen } from './components/LobbyScreen'
 import { RoomScreen } from './components/RoomScreen'
 import { BattleScreen } from './components/BattleScreen'
-import { WorldMap } from './components/WorldMap'
+import { WorldMap, MapMonsterInfo } from './components/WorldMap'
+import { MonsterBattle } from './components/MonsterBattle'
 import './App.css'
 
 // 根据环境选择服务器地址
@@ -21,7 +22,16 @@ const SERVER_URL = import.meta.env.PROD ? '' : 'http://localhost:3000';
 const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io(SERVER_URL);
 
 // 视图类型
-type ViewType = 'login' | 'world' | 'lobby' | 'room' | 'battle';
+type ViewType = 'login' | 'world' | 'lobby' | 'room' | 'battle' | 'monsterBattle';
+
+// 怪物战斗信息
+interface MonsterBattleInfo {
+  id: string;
+  name: string;
+  sprite: string;
+  level: number;
+  maxHealth: number;
+}
 
 function App() {
   // App State
@@ -33,6 +43,9 @@ function App() {
   const [currentRoom, setCurrentRoom] = useState<GameRoom | null>(null);
   const [battleData, setBattleData] = useState<BattleData | null>(null);
   const [players, setPlayers] = useState<BattlePlayer[]>([]);
+  
+  // 怪物战斗状态
+  const [currentMonster, setCurrentMonster] = useState<MonsterBattleInfo | null>(null);
 
   useEffect(() => {
     // Socket Event Listeners
@@ -167,6 +180,30 @@ function App() {
     setView('world');
   };
 
+  // 遭遇怪物，进入战斗
+  const handleMonsterEncounter = (monster: MapMonsterInfo) => {
+    setCurrentMonster({
+      ...monster,
+      maxHealth: 10,
+    });
+    setView('monsterBattle');
+  };
+
+  // 怪物战斗结束
+  const handleMonsterBattleEnd = (victory: boolean) => {
+    if (victory) {
+      // 胜利返回世界
+      setCurrentMonster(null);
+      setView('world');
+    } else {
+      // 失败后3秒返回世界（重生）
+      setTimeout(() => {
+        setCurrentMonster(null);
+        setView('world');
+      }, 3000);
+    }
+  };
+
   // 职业对应的精灵图标
   const getProfessionSprite = (prof: Profession): string => {
     const sprites: Record<Profession, string> = {
@@ -190,6 +227,7 @@ function App() {
           playerSprite={getProfessionSprite(playerProfession)}
           socket={socket}
           onEnterBattle={handleEnterLobby}
+          onMonsterEncounter={handleMonsterEncounter}
         />
       )}
       
@@ -218,6 +256,15 @@ function App() {
           players={players}
           onPlayCard={handlePlayCard}
           onEndTurn={handleEndTurn}
+        />
+      )}
+
+      {view === 'monsterBattle' && currentMonster && (
+        <MonsterBattle
+          monster={currentMonster}
+          playerName={playerName}
+          playerSprite={getProfessionSprite(playerProfession)}
+          onBattleEnd={handleMonsterBattleEnd}
         />
       )}
     </div>

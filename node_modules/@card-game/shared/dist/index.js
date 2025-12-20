@@ -25,6 +25,7 @@ __exportStar(require("./types/card"), exports);
 __exportStar(require("./types/boss"), exports);
 __exportStar(require("./types/game"), exports);
 __exportStar(require("./types/socket"), exports);
+__exportStar(require("./types/map"), exports);
 // 导出游戏常量
 exports.GAME_CONFIG = {
     // 基础配置

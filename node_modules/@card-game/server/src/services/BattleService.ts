@@ -15,8 +15,8 @@ import {
   GAME_CONFIG,
   getCardById,
   BossAction
-} from 'shared';
-import { v4 as uuidv4 } from 'uuid';
+} from '@card-game/shared';
+import { randomUUID } from 'crypto';
 
 export class BattleService {
   

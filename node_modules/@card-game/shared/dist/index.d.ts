@@ -7,6 +7,7 @@ export * from './types/card';
 export * from './types/boss';
 export * from './types/game';
 export * from './types/socket';
+export * from './types/map';
 export declare const GAME_CONFIG: {
     readonly MAX_HAND_SIZE: 7;
     readonly CARDS_PER_TURN: 2;

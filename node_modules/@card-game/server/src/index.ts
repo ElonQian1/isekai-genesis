@@ -4,7 +4,7 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import { initDB } from './db';
 import { setupSocketHandlers } from './socket';
-import { ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData } from 'shared';
+import { ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData } from '@card-game/shared';
 
 const app = express();
 app.use(cors());

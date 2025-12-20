@@ -14,7 +14,8 @@ import {
   PROFESSION_TALENTS,
   WEEKLY_BOSSES,
   createBossInstance,
-  WorldPlayer
+  WorldPlayer,
+  TeamInvite
 } from '@card-game/shared';
 import { RoomService } from './services/RoomService';
 import { BattleService } from './services/BattleService';
@@ -28,6 +29,12 @@ const players = new Map<string, Player>();
 
 // 世界地图上的玩家
 const worldPlayers = new Map<string, WorldPlayer>();
+
+// 组队邀请
+const teamInvites = new Map<string, TeamInvite>();
+
+// 根据playerId找到对应的socketId
+const playerIdToSocketId = new Map<string, string>();
 
 export function setupSocketHandlers(io: Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>) {
   
@@ -62,6 +69,9 @@ export function setupSocketHandlers(io: Server<ClientToServerEvents, ServerToCli
       players.set(socket.id, newPlayer); // 临时用socket.id绑定
       socket.data.playerId = playerId;
       socket.data.username = username;
+      
+      // 记录playerId到socketId的映射
+      playerIdToSocketId.set(playerId, socket.id);
       
       socket.emit('connection:success', { playerId });
       socket.emit('player:info', { player: newPlayer });
@@ -264,6 +274,11 @@ export function setupSocketHandlers(io: Server<ClientToServerEvents, ServerToCli
     });
 
     socket.on('disconnect', () => {
+      // 清理playerId映射
+      if (socket.data.playerId) {
+        playerIdToSocketId.delete(socket.data.playerId);
+      }
+      
       // 处理世界地图离开
       const worldPlayer = worldPlayers.get(socket.id);
       if (worldPlayer) {
@@ -275,6 +290,149 @@ export function setupSocketHandlers(io: Server<ClientToServerEvents, ServerToCli
         roomService.removePlayerFromRoom(socket.data.roomId, socket.data.playerId!);
         io.emit('lobby:roomList', { rooms: roomService.getAllRooms() });
       }
+    });
+
+    // ==================== 私聊功能 ====================
+    
+    socket.on('chat:sendPrivate', ({ targetId, message }) => {
+      const senderId = socket.data.playerId;
+      const senderName = socket.data.username;
+      
+      if (!senderId || !senderName) {
+        socket.emit('chat:privateError', { message: '未登录' });
+        return;
+      }
+
+      // 找到目标玩家的socketId
+      const targetSocketId = playerIdToSocketId.get(targetId);
+      if (!targetSocketId) {
+        socket.emit('chat:privateError', { message: '玩家不在线' });
+        return;
+      }
+
+      // 获取目标玩家信息
+      const targetPlayer = worldPlayers.get(targetSocketId);
+      const targetName = targetPlayer?.username || '未知玩家';
+
+      const timestamp = new Date();
+
+      // 发送给目标玩家
+      io.to(targetSocketId).emit('chat:privateMessage', {
+        senderId,
+        senderName,
+        message,
+        timestamp
+      });
+
+      // 给发送者确认
+      socket.emit('chat:privateMessageSent', {
+        receiverId: targetId,
+        receiverName: targetName,
+        message,
+        timestamp
+      });
+
+      console.log(`Private message from ${senderName} to ${targetName}: ${message}`);
+    });
+
+    // ==================== 组队邀请功能 ====================
+    
+    socket.on('team:invite', ({ targetId }) => {
+      const inviterId = socket.data.playerId;
+      const inviterName = socket.data.username;
+      
+      if (!inviterId || !inviterName) {
+        socket.emit('team:inviteError', { message: '未登录' });
+        return;
+      }
+
+      // 检查目标玩家是否在线
+      const targetSocketId = playerIdToSocketId.get(targetId);
+      if (!targetSocketId) {
+        socket.emit('team:inviteError', { message: '玩家不在线' });
+        return;
+      }
+
+      // 获取目标玩家信息
+      const targetPlayer = worldPlayers.get(targetSocketId);
+      const targetName = targetPlayer?.username || '未知玩家';
+
+      // 创建邀请
+      const inviteId = randomUUID();
+      const invite: TeamInvite = {
+        inviteId,
+        inviterId,
+        inviterName,
+        targetId,
+        timestamp: new Date()
+      };
+      teamInvites.set(inviteId, invite);
+
+      // 发送邀请给目标玩家
+      io.to(targetSocketId).emit('team:inviteReceived', {
+        inviteId,
+        inviterId,
+        inviterName
+      });
+
+      // 给发送者确认
+      socket.emit('team:inviteSent', { targetId, targetName });
+
+      console.log(`Team invite from ${inviterName} to ${targetName}`);
+
+      // 60秒后自动删除邀请
+      setTimeout(() => {
+        teamInvites.delete(inviteId);
+      }, 60000);
+    });
+
+    socket.on('team:acceptInvite', ({ inviteId }) => {
+      const invite = teamInvites.get(inviteId);
+      if (!invite) {
+        socket.emit('team:inviteError', { message: '邀请已过期或不存在' });
+        return;
+      }
+
+      const accepterId = socket.data.playerId;
+      const accepterName = socket.data.username;
+
+      // 通知邀请者
+      const inviterSocketId = playerIdToSocketId.get(invite.inviterId);
+      if (inviterSocketId) {
+        io.to(inviterSocketId).emit('team:inviteAccepted', {
+          playerId: accepterId!,
+          playerName: accepterName!
+        });
+      }
+
+      // 删除邀请
+      teamInvites.delete(inviteId);
+
+      console.log(`Team invite accepted by ${accepterName}`);
+      
+      // TODO: 实际的组队逻辑可以在这里添加
+    });
+
+    socket.on('team:declineInvite', ({ inviteId }) => {
+      const invite = teamInvites.get(inviteId);
+      if (!invite) return;
+
+      const declinerId = socket.data.playerId;
+      const declinerName = socket.data.username;
+
+      // 通知邀请者
+      const inviterSocketId = playerIdToSocketId.get(invite.inviterId);
+      if (inviterSocketId) {
+        io.to(inviterSocketId).emit('team:inviteDeclined', {
+          playerId: declinerId!,
+          playerName: declinerName!
+        });
+      }
+
+      // 删除邀请
+      teamInvites.delete(inviteId);
+
+      console.log(`Team invite declined by ${declinerName}`);
     });
   });
 }

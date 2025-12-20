@@ -18,6 +18,24 @@ export interface WorldPlayer {
   mapId: string;
 }
 
+// 私聊消息
+export interface PrivateMessage {
+  senderId: string;
+  senderName: string;
+  receiverId: string;
+  message: string;
+  timestamp: Date;
+}
+
+// 组队邀请
+export interface TeamInvite {
+  inviteId: string;
+  inviterId: string;
+  inviterName: string;
+  targetId: string;
+  timestamp: Date;
+}
+
 // ==================== 服务器发送给客户端的事件 ====================
 export interface ServerToClientEvents {
   // 连接相关
@@ -97,6 +115,32 @@ export interface ServerToClientEvents {
     timestamp: Date;
     isSystem: boolean;
   }) => void;
+  
+  // 私聊相关
+  'chat:privateMessage': (data: {
+    senderId: string;
+    senderName: string;
+    message: string;
+    timestamp: Date;
+  }) => void;
+  'chat:privateMessageSent': (data: {
+    receiverId: string;
+    receiverName: string;
+    message: string;
+    timestamp: Date;
+  }) => void;
+  'chat:privateError': (data: { message: string }) => void;
+  
+  // 组队邀请相关
+  'team:inviteReceived': (data: {
+    inviteId: string;
+    inviterId: string;
+    inviterName: string;
+  }) => void;
+  'team:inviteSent': (data: { targetId: string; targetName: string }) => void;
+  'team:inviteAccepted': (data: { playerId: string; playerName: string }) => void;
+  'team:inviteDeclined': (data: { playerId: string; playerName: string }) => void;
+  'team:inviteError': (data: { message: string }) => void;
 }
 
 // ==================== 客户端发送给服务器的事件 ====================
@@ -143,6 +187,14 @@ export interface ClientToServerEvents {
   'world:join': (data: { mapId: string; position: { x: number; y: number }; direction: 'up' | 'down' | 'left' | 'right'; sprite: string }) => void;
   'world:leave': () => void;
   'world:move': (data: { position: { x: number; y: number }; direction: 'up' | 'down' | 'left' | 'right' }) => void;
+  
+  // 私聊相关
+  'chat:sendPrivate': (data: { targetId: string; message: string }) => void;
+  
+  // 组队邀请相关
+  'team:invite': (data: { targetId: string }) => void;
+  'team:acceptInvite': (data: { inviteId: string }) => void;
+  'team:declineInvite': (data: { inviteId: string }) => void;
 }
 
 // ==================== Socket间事件（服务器内部） ====================
