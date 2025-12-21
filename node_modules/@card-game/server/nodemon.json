@@ -1,6 +1,0 @@
-{
-  "watch": ["src", "../shared/src"],
-  "ext": "ts,json",
-  "exec": "ts-node -r tsconfig-paths/register src/index.ts",
-  "legacyWatch": true
-}
