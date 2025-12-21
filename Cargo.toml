@@ -1,0 +1,66 @@
+# =============================================================================
+# 🦀 Rust Workspace 根配置
+# =============================================================================
+# 项目: 精美 3D 网页卡牌游戏
+# 文档: 文档/00-项目总览.md
+# =============================================================================
+
+[workspace]
+resolver = "2"
+members = [
+    "crates/game-core",
+    "crates/game-wasm",
+    "crates/game-server",
+]
+
+# 共享的依赖版本
+[workspace.dependencies]
+# 序列化
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# 随机数
+rand = "0.8"
+
+# UUID (添加 js feature 支持 WASM)
+uuid = { version = "1.0", features = ["v4", "serde", "js"] }
+
+# 错误处理
+thiserror = "1.0"
+anyhow = "1.0"
+
+# 日志
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# 异步运行时 (仅 server)
+tokio = { version = "1.0", features = ["full"] }
+
+# Web 框架 (仅 server)
+axum = { version = "0.7", features = ["ws"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+
+# WebSocket (仅 server)
+tokio-tungstenite = "0.21"
+
+# 数据库 (仅 server)
+sqlx = { version = "0.7", features = ["runtime-tokio", "postgres", "uuid"] }
+
+# 时间
+chrono = { version = "0.4", features = ["serde"] }
+
+# WASM 绑定 (仅 wasm)
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+console_error_panic_hook = "0.1"
+js-sys = "0.3"
+web-sys = "0.3"
+
+# Workspace 级别配置
+[profile.release]
+lto = true
+opt-level = 3
+
+[profile.dev]
+opt-level = 1
