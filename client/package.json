@@ -1,0 +1,24 @@
+{
+  "name": "card-game-client",
+  "version": "0.1.0",
+  "description": "3D Card Game Client - Babylon.js + WebGPU",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@babylonjs/core": "^7.0.0",
+    "@babylonjs/loaders": "^7.0.0",
+    "@babylonjs/materials": "^7.0.0",
+    "@babylonjs/gui": "^7.0.0",
+    "game-wasm": "file:../crates/game-wasm/pkg"
+  },
+  "devDependencies": {
+    "@webgpu/types": "^0.1.0",
+    "typescript": "^5.4.0",
+    "vite": "^5.4.0"
+  }
+}
