@@ -8,14 +8,6 @@
 
 import {
     Scene,
-    Vector3,
-    Color3,
-    Color4,
-    Mesh,
-    MeshBuilder,
-    DynamicTexture,
-    StandardMaterial,
-    TransformNode,
 } from '@babylonjs/core';
 import {
     AdvancedDynamicTexture,
@@ -23,7 +15,6 @@ import {
     TextBlock,
     StackPanel,
     Control,
-    Image,
 } from '@babylonjs/gui';
 
 import { ClPlayerData, ClBattleState } from '../cl_battle_manager';
