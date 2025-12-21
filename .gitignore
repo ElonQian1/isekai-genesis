@@ -19,6 +19,7 @@ pnpm-debug.log*
 # 构建输出
 # ===========================
 /dist/
+**/dist/
 /build/
 *.wasm
 /pkg/
