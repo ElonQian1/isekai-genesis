@@ -1,0 +1,53 @@
+[package]
+name = "game-server"
+version = "0.1.0"
+edition = "2021"
+description = "Card game backend server - Axum + WebSocket"
+authors = ["Card Game Team"]
+
+[[bin]]
+name = "server"
+path = "src/main.rs"
+
+[dependencies]
+# 共享核心逻辑
+game-core = { path = "../game-core" }
+
+# Web 框架
+axum = { workspace = true }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+
+# 异步运行时
+tokio = { workspace = true }
+
+# WebSocket
+tokio-tungstenite = { workspace = true }
+futures-util = "0.3"
+
+# 序列化
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# 数据库
+sqlx = { workspace = true }
+
+# UUID
+uuid = { workspace = true }
+
+# 日志
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# 时间
+chrono = { workspace = true }
+
+# 环境变量
+dotenvy = "0.15"
+
+# 错误处理
+thiserror = { workspace = true }
+anyhow = "1.0"
+
+[dev-dependencies]
+tokio-test = "0.4"
