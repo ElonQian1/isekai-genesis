@@ -5,6 +5,12 @@ edition = "2021"
 description = "WASM bindings for card game - exposes game-core to JavaScript"
 authors = ["Card Game Team"]
 
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
+[package.metadata.wasm-pack.profile.dev]
+wasm-opt = false
+
 [lib]
 crate-type = ["cdylib", "rlib"]
 
