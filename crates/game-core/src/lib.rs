@@ -19,14 +19,47 @@
 mod gc_types;
 mod gc_player;
 mod gc_card;
+mod gc_card_pool;
+mod gc_battlefield;
 mod gc_battle;
 mod gc_effect;
 mod gc_error;
+mod gc_boss;
+mod gc_organization;
+mod gc_map;
+mod gc_map_entity;
+mod gc_map_player;
+mod gc_map_templates;
+mod gc_profession;
+mod gc_talent;
+mod gc_talent_templates;
+mod gc_equipment;
+mod gc_inventory;
+mod gc_equipment_templates;
+mod gc_card_templates;
+mod gc_mcp;
 
 // 公开导出
 pub use gc_types::*;
 pub use gc_player::*;
 pub use gc_card::*;
+pub use gc_card_pool::*;
+pub use gc_battlefield::*;
 pub use gc_battle::*;
 pub use gc_effect::*;
 pub use gc_error::*;
+pub use gc_boss::*;
+pub use gc_mcp::*;
+pub use gc_equipment::*;
+pub use gc_inventory::*;
+pub use gc_equipment_templates::*;
+pub use gc_card_templates::*;
+pub use gc_organization::*;
+pub use gc_map::*;
+pub use gc_map_entity::*;
+pub use gc_map_player::*;
+pub use gc_map_templates::*;
+pub use gc_profession::*;
+pub use gc_talent::*;
+pub use gc_talent_templates::*;
+

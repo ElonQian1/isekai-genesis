@@ -53,9 +53,39 @@ impl GwBattle {
         self.state.current_player_index = 0;
         self.state.turn = 1;
         
-        // 初始抽牌
-        for player in &mut self.state.players {
-            player.gc_draw_cards(5); // 初始5张牌
+        // 为每个玩家生成初始牌库
+        for (i, player) in self.state.players.iter_mut().enumerate() {
+            // 创建初始牌库：5张攻击牌 + 3张防御牌
+            player.deck.clear();
+            for j in 0..5 {
+                let card = GcCard::gc_new_attack(
+                    &format!("atk_{}_{}", i, j),
+                    "打击",
+                    1,
+                    10 + j as u32 * 2, // 10, 12, 14, 16, 18 伤害
+                );
+                player.deck.push(card);
+            }
+            for j in 0..3 {
+                let card = GcCard::gc_new_defense(
+                    &format!("def_{}_{}", i, j),
+                    "防御",
+                    1,
+                    8 + j as u32 * 2, // 8, 10, 12 护盾
+                );
+                player.deck.push(card);
+            }
+            
+            // 给玩家初始能量
+            player.stats.energy = 3;
+            player.stats.max_energy = 3;
+            
+            // 设置初始行动力
+            player.stats.action_points = 5;
+            player.stats.max_action_points = 5;
+            
+            // 抽取初始手牌
+            player.gc_draw_cards(5);
         }
         
         gw_log("⚔️ 战斗开始!");
@@ -117,14 +147,23 @@ impl GwBattle {
         gw_to_json(&result)
     }
 
-    /// 结束回合
-    pub fn end_turn(&mut self, player_id: &str) -> Result<(), JsValue> {
+    /// 结束回合 (会自动执行战场战斗)
+    pub fn end_turn(&mut self, player_id: &str) -> Result<JsValue, JsValue> {
         // 验证是否是当前玩家
         if self.state.current_player_index < self.state.players.len() {
             let current = &self.state.players[self.state.current_player_index];
             if current.id != player_id {
                 return Err(JsValue::from_str("不是你的回合"));
             }
+        }
+        
+        // 执行战场战斗
+        let combat_result = self.state.gc_execute_turn_combat(player_id);
+        
+        // 检查战斗是否因战斗结束
+        if self.state.gc_is_finished() {
+            gw_log("⚔️ 战场战斗导致游戏结束!");
+            return gw_to_js_value(&combat_result);
         }
 
         // 切换玩家
@@ -135,14 +174,15 @@ impl GwBattle {
             self.state.turn += 1;
         }
 
-        // 新玩家回合开始：恢复能量，抽牌
+        // 新玩家回合开始：恢复能量、行动力，抽牌
         if let Some(player) = self.state.players.get_mut(self.state.current_player_index) {
             player.stats.energy = player.stats.max_energy;
+            player.stats.gc_reset_action_points();
             player.gc_draw_cards(GcConfig::DRAW_PER_TURN);
         }
 
         gw_log(&format!("回合结束，现在是玩家 {} 的回合", self.state.current_player_index));
-        Ok(())
+        gw_to_js_value(&combat_result)
     }
 
     /// 获取完整战斗状态 JSON
@@ -162,6 +202,145 @@ impl GwBattle {
             .find(|p| p.id == player_id)
             .map(|p| gw_to_json(p))
             .unwrap_or_else(|| Err(JsValue::from_str("玩家不存在")))
+    }
+    
+    // =========================================================================
+    // 公共卡池相关方法
+    // =========================================================================
+    
+    /// 获取公共卡池展示区 JSON
+    pub fn get_pool_display_json(&self) -> Result<String, JsValue> {
+        gw_to_json(&self.state.card_pool.display)
+    }
+    
+    /// 获取公共卡池展示区 JS 对象
+    pub fn get_pool_display(&self) -> Result<JsValue, JsValue> {
+        gw_to_js_value(&self.state.card_pool.display)
+    }
+    
+    /// 从公共卡池获取卡牌 (消耗行动力)
+    pub fn acquire_card(&mut self, player_id: &str, card_id: &str) -> Result<String, JsValue> {
+        match self.state.gc_acquire_card_from_pool(player_id, card_id) {
+            Ok(card) => {
+                gw_log(&format!("🃏 {} 获取了卡牌: {}", player_id, card.name));
+                gw_to_json(&card)
+            }
+            Err(e) => Err(JsValue::from_str(&e.to_string()))
+        }
+    }
+    
+    /// 刷新公共卡池 (消耗行动力)
+    pub fn refresh_pool(&mut self, player_id: &str) -> Result<(), JsValue> {
+        match self.state.gc_refresh_pool(player_id) {
+            Ok(()) => {
+                gw_log(&format!("🔄 {} 刷新了卡池", player_id));
+                Ok(())
+            }
+            Err(e) => Err(JsValue::from_str(&e.to_string()))
+        }
+    }
+    
+    /// 获取玩家当前行动力
+    pub fn get_action_points(&self, player_id: &str) -> u32 {
+        self.state.players
+            .iter()
+            .find(|p| p.id == player_id)
+            .map(|p| p.stats.action_points)
+            .unwrap_or(0)
+    }
+    
+    /// 获取卡池配置
+    pub fn get_pool_config(&self) -> Result<JsValue, JsValue> {
+        gw_to_js_value(&self.state.card_pool.config)
+    }
+    
+    /// 获取卡池抽牌堆剩余数量
+    pub fn get_pool_draw_count(&self) -> usize {
+        self.state.card_pool.gc_draw_pile_count()
+    }
+    
+    /// 获取卡池弃牌堆数量
+    pub fn get_pool_discard_count(&self) -> usize {
+        self.state.card_pool.gc_discard_pile_count()
+    }
+    
+    // =========================================================================
+    // 战场部署相关方法
+    // =========================================================================
+    
+    /// 部署卡牌到战场 (消耗行动力)
+    pub fn deploy_card(
+        &mut self,
+        player_id: &str,
+        card_id: &str,
+        slot_index: usize,
+    ) -> Result<(), JsValue> {
+        match self.state.gc_deploy_card(player_id, card_id, slot_index) {
+            Ok(()) => {
+                gw_log(&format!("📦 {} 将卡牌部署到槽位 {}", player_id, slot_index));
+                Ok(())
+            }
+            Err(e) => Err(JsValue::from_str(&e.to_string()))
+        }
+    }
+    
+    /// 获取玩家战场状态 JSON
+    pub fn get_battlefield_json(&self, player_id: &str) -> Result<String, JsValue> {
+        self.state.gc_get_battlefield(player_id)
+            .map(|bf| gw_to_json(bf))
+            .unwrap_or_else(|| Err(JsValue::from_str("玩家不存在")))
+    }
+    
+    /// 获取玩家战场状态 JS 对象
+    pub fn get_battlefield(&self, player_id: &str) -> Result<JsValue, JsValue> {
+        self.state.gc_get_battlefield(player_id)
+            .map(|bf| gw_to_js_value(bf))
+            .unwrap_or_else(|| Err(JsValue::from_str("玩家不存在")))
+    }
+    
+    /// 获取玩家战场空闲槽位
+    pub fn get_empty_slots(&self, player_id: &str) -> Result<JsValue, JsValue> {
+        if let Some(player) = self.state.gc_find_player(player_id) {
+            let empty = player.gc_get_empty_battlefield_slots();
+            gw_to_js_value(&empty)
+        } else {
+            Err(JsValue::from_str("玩家不存在"))
+        }
+    }
+    
+    // =========================================================================
+    // 回合战斗相关方法
+    // =========================================================================
+    
+    /// 执行回合结束战斗 (战场卡牌自动攻击)
+    /// 返回战斗结果 JSON
+    pub fn execute_turn_combat(&mut self, player_id: &str) -> Result<String, JsValue> {
+        match self.state.gc_execute_turn_combat(player_id) {
+            Some(result) => {
+                gw_log(&format!(
+                    "⚔️ 回合战斗: 对手受伤 {}, 己方受伤 {}",
+                    result.opponent_damage_taken,
+                    result.player_damage_taken
+                ));
+                
+                if result.battle_ended {
+                    if let Some(ref winner) = result.winner_id {
+                        gw_log(&format!("🏆 战斗结束! 获胜者: {}", winner));
+                    }
+                }
+                
+                gw_to_json(&result)
+            }
+            None => Err(JsValue::from_str("无法执行战斗"))
+        }
+    }
+    
+    /// 执行回合结束战斗并返回 JS 对象
+    pub fn execute_turn_combat_js(&mut self, player_id: &str) -> Result<JsValue, JsValue> {
+        match self.state.gc_execute_turn_combat(player_id) {
+            Some(result) => gw_to_js_value(&result),
+            None => Err(JsValue::from_str("无法执行战斗"))
+        }
     }
 }
 

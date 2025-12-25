@@ -54,6 +54,30 @@ pub enum GcError {
     #[error("能量不足")]
     GcNotEnoughEnergy,
     
+    /// 行动力不足
+    #[error("行动力不足")]
+    GcNotEnoughActionPoints,
+    
+    /// 手牌已满
+    #[error("手牌已满")]
+    GcHandFull,
+    
+    /// 卡牌不在卡池中
+    #[error("卡牌不在卡池中")]
+    GcCardNotInPool,
+    
+    /// 战场已满
+    #[error("战场已满")]
+    GcBattlefieldFull,
+    
+    /// 无效槽位
+    #[error("无效槽位")]
+    GcInvalidSlot,
+    
+    /// 槽位已被占用
+    #[error("槽位已被占用")]
+    GcSlotOccupied,
+    
     // =========================================================================
     // 目标相关错误 (4xxx)
     // =========================================================================
@@ -96,6 +120,12 @@ impl GcError {
             GcError::GcCardNotInHand => 3001,
             GcError::GcCardNotFound => 3002,
             GcError::GcNotEnoughEnergy => 3003,
+            GcError::GcNotEnoughActionPoints => 3004,
+            GcError::GcHandFull => 3005,
+            GcError::GcCardNotInPool => 3006,
+            GcError::GcBattlefieldFull => 3007,
+            GcError::GcInvalidSlot => 3008,
+            GcError::GcSlotOccupied => 3009,
             
             // 目标相关 4xxx
             GcError::GcInvalidTarget => 4001,

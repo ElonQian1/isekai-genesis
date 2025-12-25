@@ -1,0 +1,45 @@
+{
+    "id": "map_default",
+    "name": "桃源村",
+    "version": "1.0.0",
+    "settings": {
+        "size": 500,
+        "skybox": "sky_day",
+        "ambientColor": [0.8, 0.8, 0.9],
+        "fogDensity": 0.002
+    },
+    "entities": [
+        {
+            "type": "structure",
+            "id": "pavilion_01",
+            "prefab": "pavilion",
+            "position": [15, 5, 15],
+            "rotation": [0, 0, 0],
+            "scale": 1.0
+        },
+        {
+            "type": "structure",
+            "id": "bridge_01",
+            "prefab": "bridge",
+            "position": [0, 2, -10],
+            "rotation": [0, 0, 0],
+            "scale": 1.0
+        },
+        {
+            "type": "tree",
+            "id": "tree_ancient",
+            "prefab": "tree_pine",
+            "position": [20, 0, 20],
+            "rotation": [0, 0, 0],
+            "scale": 1.5
+        },
+        {
+            "type": "tree",
+            "id": "tree_guide_01",
+            "prefab": "tree_pine",
+            "position": [5, 0, 5],
+            "rotation": [0, 30, 0],
+            "scale": 0.8
+        }
+    ]
+}

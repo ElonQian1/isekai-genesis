@@ -6,8 +6,12 @@
  * 文档: 文档/04-client.md
  */
 
+// 首先导入 GLTF/GLB 加载器，确保在任何模型加载之前注册
+import '@babylonjs/loaders/glTF';
+
 import { ClGame } from './cl_game';
 import { cl_initWasm, cl_getWasmVersion, cl_createTestBattle } from './cl_wasm';
+import { cl_initLogger } from './core/cl_logger';
 
 // 全局游戏实例
 let game: ClGame | null = null;
@@ -16,6 +20,9 @@ let game: ClGame | null = null;
  * 初始化游戏
  */
 async function cl_init(): Promise<void> {
+    // 0. 初始化日志收集器（最先执行，捕获所有日志）
+    cl_initLogger();
+    
     const canvas = document.getElementById('renderCanvas') as HTMLCanvasElement;
     const loadingScreen = document.getElementById('loadingScreen');
     const loadingText = loadingScreen?.querySelector('.loading-text');

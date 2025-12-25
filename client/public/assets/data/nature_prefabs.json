@@ -1,0 +1,115 @@
+{
+  "version": "1.0",
+  "description": "Quaternius Stylized Nature MegaKit 预制体配置",
+  "license": "CC0",
+  "categories": {
+    "trees": {
+      "name": "树木",
+      "models": [
+        { "id": "common_tree_1", "file": "CommonTree_1.gltf", "name": "普通树 1", "scale": 1.0 },
+        { "id": "common_tree_2", "file": "CommonTree_2.gltf", "name": "普通树 2", "scale": 1.0 },
+        { "id": "common_tree_3", "file": "CommonTree_3.gltf", "name": "普通树 3", "scale": 1.0 },
+        { "id": "common_tree_4", "file": "CommonTree_4.gltf", "name": "普通树 4", "scale": 1.0 },
+        { "id": "common_tree_5", "file": "CommonTree_5.gltf", "name": "普通树 5", "scale": 1.0 },
+        { "id": "pine_1", "file": "Pine_1.gltf", "name": "松树 1", "scale": 1.0 },
+        { "id": "pine_2", "file": "Pine_2.gltf", "name": "松树 2", "scale": 1.0 },
+        { "id": "pine_3", "file": "Pine_3.gltf", "name": "松树 3", "scale": 1.0 },
+        { "id": "pine_4", "file": "Pine_4.gltf", "name": "松树 4", "scale": 1.0 },
+        { "id": "pine_5", "file": "Pine_5.gltf", "name": "松树 5", "scale": 1.0 },
+        { "id": "twisted_tree_1", "file": "TwistedTree_1.gltf", "name": "扭曲树 1", "scale": 1.0 },
+        { "id": "twisted_tree_2", "file": "TwistedTree_2.gltf", "name": "扭曲树 2", "scale": 1.0 },
+        { "id": "twisted_tree_3", "file": "TwistedTree_3.gltf", "name": "扭曲树 3", "scale": 1.0 },
+        { "id": "twisted_tree_4", "file": "TwistedTree_4.gltf", "name": "扭曲树 4", "scale": 1.0 },
+        { "id": "twisted_tree_5", "file": "TwistedTree_5.gltf", "name": "扭曲树 5", "scale": 1.0 },
+        { "id": "dead_tree_1", "file": "DeadTree_1.gltf", "name": "枯树 1", "scale": 1.0 },
+        { "id": "dead_tree_2", "file": "DeadTree_2.gltf", "name": "枯树 2", "scale": 1.0 },
+        { "id": "dead_tree_3", "file": "DeadTree_3.gltf", "name": "枯树 3", "scale": 1.0 },
+        { "id": "dead_tree_4", "file": "DeadTree_4.gltf", "name": "枯树 4", "scale": 1.0 },
+        { "id": "dead_tree_5", "file": "DeadTree_5.gltf", "name": "枯树 5", "scale": 1.0 }
+      ]
+    },
+    "bushes": {
+      "name": "灌木",
+      "models": [
+        { "id": "bush_common", "file": "Bush_Common.gltf", "name": "普通灌木", "scale": 1.0 },
+        { "id": "bush_flowers", "file": "Bush_Common_Flowers.gltf", "name": "花灌木", "scale": 1.0 }
+      ]
+    },
+    "plants": {
+      "name": "植物",
+      "models": [
+        { "id": "clover_1", "file": "Clover_1.gltf", "name": "三叶草 1", "scale": 1.0 },
+        { "id": "clover_2", "file": "Clover_2.gltf", "name": "三叶草 2", "scale": 1.0 },
+        { "id": "fern_1", "file": "Fern_1.gltf", "name": "蕨类", "scale": 1.0 },
+        { "id": "plant_1", "file": "Plant_1.gltf", "name": "植物 1", "scale": 1.0 },
+        { "id": "plant_1_big", "file": "Plant_1_Big.gltf", "name": "植物 1 大", "scale": 1.0 },
+        { "id": "plant_7", "file": "Plant_7.gltf", "name": "植物 7", "scale": 1.0 },
+        { "id": "plant_7_big", "file": "Plant_7_Big.gltf", "name": "植物 7 大", "scale": 1.0 }
+      ]
+    },
+    "flowers": {
+      "name": "花朵",
+      "models": [
+        { "id": "flower_3_group", "file": "Flower_3_Group.gltf", "name": "花群 3", "scale": 1.0 },
+        { "id": "flower_3_single", "file": "Flower_3_Single.gltf", "name": "单花 3", "scale": 1.0 },
+        { "id": "flower_4_group", "file": "Flower_4_Group.gltf", "name": "花群 4", "scale": 1.0 },
+        { "id": "flower_4_single", "file": "Flower_4_Single.gltf", "name": "单花 4", "scale": 1.0 },
+        { "id": "petal_1", "file": "Petal_1.gltf", "name": "花瓣 1", "scale": 1.0 },
+        { "id": "petal_2", "file": "Petal_2.gltf", "name": "花瓣 2", "scale": 1.0 },
+        { "id": "petal_3", "file": "Petal_3.gltf", "name": "花瓣 3", "scale": 1.0 },
+        { "id": "petal_4", "file": "Petal_4.gltf", "name": "花瓣 4", "scale": 1.0 },
+        { "id": "petal_5", "file": "Petal_5.gltf", "name": "花瓣 5", "scale": 1.0 }
+      ]
+    },
+    "grass": {
+      "name": "草",
+      "models": [
+        { "id": "grass_common_short", "file": "Grass_Common_Short.gltf", "name": "短草", "scale": 1.0 },
+        { "id": "grass_common_tall", "file": "Grass_Common_Tall.gltf", "name": "高草", "scale": 1.0 },
+        { "id": "grass_wispy_short", "file": "Grass_Wispy_Short.gltf", "name": "细草短", "scale": 1.0 },
+        { "id": "grass_wispy_tall", "file": "Grass_Wispy_Tall.gltf", "name": "细草高", "scale": 1.0 }
+      ]
+    },
+    "rocks": {
+      "name": "岩石",
+      "models": [
+        { "id": "rock_medium_1", "file": "Rock_Medium_1.gltf", "name": "中岩石 1", "scale": 1.0 },
+        { "id": "rock_medium_2", "file": "Rock_Medium_2.gltf", "name": "中岩石 2", "scale": 1.0 },
+        { "id": "rock_medium_3", "file": "Rock_Medium_3.gltf", "name": "中岩石 3", "scale": 1.0 },
+        { "id": "pebble_round_1", "file": "Pebble_Round_1.gltf", "name": "圆卵石 1", "scale": 1.0 },
+        { "id": "pebble_round_2", "file": "Pebble_Round_2.gltf", "name": "圆卵石 2", "scale": 1.0 },
+        { "id": "pebble_round_3", "file": "Pebble_Round_3.gltf", "name": "圆卵石 3", "scale": 1.0 },
+        { "id": "pebble_round_4", "file": "Pebble_Round_4.gltf", "name": "圆卵石 4", "scale": 1.0 },
+        { "id": "pebble_round_5", "file": "Pebble_Round_5.gltf", "name": "圆卵石 5", "scale": 1.0 },
+        { "id": "pebble_square_1", "file": "Pebble_Square_1.gltf", "name": "方卵石 1", "scale": 1.0 },
+        { "id": "pebble_square_2", "file": "Pebble_Square_2.gltf", "name": "方卵石 2", "scale": 1.0 },
+        { "id": "pebble_square_3", "file": "Pebble_Square_3.gltf", "name": "方卵石 3", "scale": 1.0 },
+        { "id": "pebble_square_4", "file": "Pebble_Square_4.gltf", "name": "方卵石 4", "scale": 1.0 },
+        { "id": "pebble_square_5", "file": "Pebble_Square_5.gltf", "name": "方卵石 5", "scale": 1.0 },
+        { "id": "pebble_square_6", "file": "Pebble_Square_6.gltf", "name": "方卵石 6", "scale": 1.0 }
+      ]
+    },
+    "paths": {
+      "name": "道路石",
+      "models": [
+        { "id": "rockpath_round_small_1", "file": "RockPath_Round_Small_1.gltf", "name": "圆路石小 1", "scale": 1.0 },
+        { "id": "rockpath_round_small_2", "file": "RockPath_Round_Small_2.gltf", "name": "圆路石小 2", "scale": 1.0 },
+        { "id": "rockpath_round_small_3", "file": "RockPath_Round_Small_3.gltf", "name": "圆路石小 3", "scale": 1.0 },
+        { "id": "rockpath_round_thin", "file": "RockPath_Round_Thin.gltf", "name": "圆路石细", "scale": 1.0 },
+        { "id": "rockpath_round_wide", "file": "RockPath_Round_Wide.gltf", "name": "圆路石宽", "scale": 1.0 },
+        { "id": "rockpath_square_small_1", "file": "RockPath_Square_Small_1.gltf", "name": "方路石小 1", "scale": 1.0 },
+        { "id": "rockpath_square_small_2", "file": "RockPath_Square_Small_2.gltf", "name": "方路石小 2", "scale": 1.0 },
+        { "id": "rockpath_square_small_3", "file": "RockPath_Square_Small_3.gltf", "name": "方路石小 3", "scale": 1.0 },
+        { "id": "rockpath_square_thin", "file": "RockPath_Square_Thin.gltf", "name": "方路石细", "scale": 1.0 },
+        { "id": "rockpath_square_wide", "file": "RockPath_Square_Wide.gltf", "name": "方路石宽", "scale": 1.0 }
+      ]
+    },
+    "mushrooms": {
+      "name": "蘑菇",
+      "models": [
+        { "id": "mushroom_common", "file": "Mushroom_Common.gltf", "name": "普通蘑菇", "scale": 1.0 },
+        { "id": "mushroom_laetiporus", "file": "Mushroom_Laetiporus.gltf", "name": "灵芝蘑菇", "scale": 1.0 }
+      ]
+    }
+  }
+}

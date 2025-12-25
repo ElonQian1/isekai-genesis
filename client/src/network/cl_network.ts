@@ -1,6 +1,23 @@
 /**
  * WebSocket 网络客户端
  * 
+ * @deprecated 此文件已废弃，请使用新的模块化网络架构:
+ * - ClWebSocketCore: 核心连接管理
+ * - ClLobbyService: 大厅服务 (登录、房间管理)
+ * - ClBattleService: 战斗服务 (游戏内通信)
+ * 
+ * 迁移指南:
+ * ```typescript
+ * // 旧代码
+ * const network = cl_getNetworkClient();
+ * await network.connect();
+ * network.login(playerId, name);
+ * 
+ * // 新代码
+ * const lobby = cl_getLobbyService();
+ * await lobby.connectAndLogin(playerId, name);
+ * ```
+ * 
  * 模块: client/network
  * 前缀: Cl
  * 文档: 文档/04-client.md

@@ -8,11 +8,19 @@
 
 mod gw_bridge;
 mod gw_battle;
+mod gw_boss;
 mod gw_utils;
+mod gw_map;
+mod gw_profession;
+mod gw_equipment;
 
 pub use gw_bridge::*;
 pub use gw_battle::*;
+pub use gw_boss::*;
 pub use gw_utils::*;
+pub use gw_map::*;
+pub use gw_profession::*;
+pub use gw_equipment::*;
 
 use wasm_bindgen::prelude::*;
 

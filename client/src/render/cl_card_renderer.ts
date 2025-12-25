@@ -80,31 +80,41 @@ export class ClCardRenderer {
      * 转换卡牌数据为材质配置
      */
     private dataToMaterialConfig(data: ClCardData): ClCardMaterialConfig {
-        // 转换卡牌类型
+        // 转换卡牌类型 - ClWasmCard 使用 Pascal 风格
         const typeMap: Record<string, ClCardType> = {
-            'attack': 'attack',
-            'skill': 'skill',
-            'power': 'power',
+            'Attack': 'attack',
+            'Defense': 'attack',  // 防御卡也使用攻击样式
+            'Skill': 'skill',
+            'Special': 'power',
         };
         
-        // 转换稀有度
-        const rarityMap: Record<string, ClCardRarity> = {
-            'common': 'common',
-            'uncommon': 'uncommon',
-            'rare': 'rare',
-            'epic': 'epic',
-            'legendary': 'legendary',
+        // 根据卡牌类型推断稀有度（ClWasmCard 没有稀有度属性）
+        const inferRarity = (cost: number): ClCardRarity => {
+            if (cost >= 4) return 'epic';
+            if (cost >= 3) return 'rare';
+            if (cost >= 2) return 'uncommon';
+            return 'common';
+        };
+
+        // 生成描述文本
+        const generateDescription = (): string => {
+            if (data.card_type === 'Attack') {
+                return `对敌人造成 ${data.base_damage} 点伤害`;
+            } else if (data.card_type === 'Defense') {
+                return `获得 ${data.base_damage} 点护盾`;
+            }
+            return data.effects.map(e => `${e.effect_type}: ${e.value}`).join('\n');
         };
 
         return {
             name: data.id,
             cardType: typeMap[data.card_type] || 'attack',
-            rarity: rarityMap[data.rarity] || 'common',
+            rarity: inferRarity(data.cost),
             title: data.name,
             cost: data.cost,
-            description: data.description,
-            attack: data.damage,
-            defense: data.block,
+            description: generateDescription(),
+            attack: data.card_type === 'Attack' ? data.base_damage : undefined,
+            defense: data.card_type === 'Defense' ? data.base_damage : undefined,
         };
     }
 
@@ -183,35 +193,23 @@ export class ClCardRenderer {
 // =============================================================================
 
 export function cl_createTestCardData(index: number): ClCardData {
-    const cardTypes: ClCardData['card_type'][] = ['attack', 'skill', 'power'];
-    const rarities: ClCardData['rarity'][] = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
+    const cardTypes: ClCardData['card_type'][] = ['Attack', 'Defense', 'Skill', 'Special'];
     
     const names = [
         '火球术', '冰霜护盾', '治愈之光', '雷击', '暗影箭',
         '战斗怒吼', '魔法屏障', '生命汲取', '烈焰风暴', '神圣打击'
     ];
     
-    const descriptions = [
-        '对敌人造成6点伤害',
-        '获得5点格挡',
-        '恢复4点生命值',
-        '对敌人造成4点伤害，抽1张牌',
-        '对敌人造成8点伤害',
-        '下回合攻击力+3',
-        '获得8点格挡',
-        '造成3点伤害，恢复等量生命',
-        '对所有敌人造成4点伤害',
-        '造成10点伤害'
-    ];
+    const cardType = cardTypes[index % cardTypes.length];
+    const baseDamage = cardType === 'Attack' ? 4 + index : (cardType === 'Defense' ? 3 + index : 0);
 
     return {
         id: `card_${index}`,
+        template_id: `template_${index}`,
         name: names[index % names.length],
         cost: (index % 4) + 1,
-        description: descriptions[index % descriptions.length],
-        card_type: cardTypes[index % cardTypes.length],
-        rarity: rarities[Math.min(index, rarities.length - 1)],
-        damage: index % 2 === 0 ? 4 + index : undefined,
-        block: index % 2 === 1 ? 3 + index : undefined,
+        card_type: cardType,
+        base_damage: baseDamage,
+        effects: [],
     };
 }

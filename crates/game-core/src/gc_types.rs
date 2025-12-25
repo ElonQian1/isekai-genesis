@@ -1,4 +1,4 @@
-//! 核心类型定义
+﻿//! 核心类型定义
 //!
 //! 模块: game-core (共享核心)
 //! 前缀: Gc
@@ -26,6 +26,9 @@ impl GcConfig {
     /// 默认防御力
     pub const DEFAULT_DEFENSE: u32 = 5;
     
+    /// 默认能量
+    pub const DEFAULT_ENERGY: u32 = 3;
+    
     /// 每回合抽牌数
     pub const DRAW_PER_TURN: usize = 1;
     
@@ -51,6 +54,118 @@ pub type GcBattleId = String;
 
 /// 房间 ID
 pub type GcRoomId = String;
+
+// =============================================================================
+// 属性系统
+// =============================================================================
+
+/// 基础属性类型
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum GcStatType {
+    /// 力量 (增加物理攻击)
+    Strength,
+    /// 敏捷 (增加暴击和闪避)
+    Agility,
+    /// 智力 (增加魔法攻击和魔力)
+    Intelligence,
+    /// 体质 (增加生命值)
+    Vitality,
+}
+
+impl GcStatType {
+    pub fn gc_name(&self) -> &'static str {
+        match self {
+            GcStatType::Strength => "力量",
+            GcStatType::Agility => "敏捷",
+            GcStatType::Intelligence => "智力",
+            GcStatType::Vitality => "体质",
+        }
+    }
+}
+
+/// 基础属性集合
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+pub struct GcBaseStats {
+    pub strength: u32,
+    pub agility: u32,
+    pub intelligence: u32,
+    pub vitality: u32,
+}
+
+impl GcBaseStats {
+    pub fn gc_merge(&mut self, other: &GcBaseStats) {
+        self.strength += other.strength;
+        self.agility += other.agility;
+        self.intelligence += other.intelligence;
+        self.vitality += other.vitality;
+    }
+
+    pub fn gc_add(&mut self, stat_type: GcStatType, value: i32) {
+        let v = value.max(0) as u32;
+        match stat_type {
+            GcStatType::Strength => self.strength += v,
+            GcStatType::Agility => self.agility += v,
+            GcStatType::Intelligence => self.intelligence += v,
+            GcStatType::Vitality => self.vitality += v,
+        }
+    }
+}
+
+/// 战斗属性集合
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+pub struct GcCombatStats {
+    pub attack: u32,
+    pub defense: u32,
+    pub max_hp: u32,
+    pub max_energy: u32,
+    pub crit_rate: u32,     // 万分比
+    pub crit_damage: u32,   // 万分比
+    pub dodge_rate: u32,    // 万分比
+    pub hit_rate: u32,      // 万分比
+    pub physical_attack: u32,
+    pub magic_attack: u32,
+    pub physical_defense: u32,
+    pub magic_defense: u32,
+    pub healing_bonus: u32,
+    pub cooldown_reduction: u32,
+}
+
+impl GcCombatStats {
+    pub fn gc_merge(&mut self, other: &GcCombatStats) {
+        self.attack += other.attack;
+        self.defense += other.defense;
+        self.max_hp += other.max_hp;
+        self.max_energy += other.max_energy;
+        self.crit_rate += other.crit_rate;
+        self.crit_damage += other.crit_damage;
+        self.dodge_rate += other.dodge_rate;
+        self.hit_rate += other.hit_rate;
+        self.physical_attack += other.physical_attack;
+        self.magic_attack += other.magic_attack;
+        self.physical_defense += other.physical_defense;
+        self.magic_defense += other.magic_defense;
+        self.healing_bonus += other.healing_bonus;
+        self.cooldown_reduction += other.cooldown_reduction;
+    }
+
+    pub fn gc_from_base_stats(base: &GcBaseStats, _level: u32) -> Self {
+        let mut stats = Self::default();
+        stats.max_hp = base.vitality * 10;
+        stats.physical_attack = base.strength * 2;
+        stats.magic_attack = base.intelligence * 2;
+        stats.physical_defense = base.strength;
+        stats.magic_defense = base.intelligence;
+        stats.crit_rate = base.agility * 10;
+        stats.dodge_rate = base.agility * 5;
+        stats.max_energy = 3;
+        
+        // Derived generic stats
+        stats.attack = stats.physical_attack.max(stats.magic_attack);
+        stats.defense = stats.physical_defense.max(stats.magic_defense);
+        
+        stats
+    }
+}
 
 // =============================================================================
 // 伤害计算结果
@@ -136,3 +251,4 @@ mod tests {
         assert!(!result.is_critical);
     }
 }
+

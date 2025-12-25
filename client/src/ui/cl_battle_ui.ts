@@ -18,6 +18,9 @@ import {
 } from '@babylonjs/gui';
 
 import { ClPlayerData, ClBattleState } from '../cl_battle_manager';
+import { ClCardPoolUI } from './cl_card_pool_ui';
+import { ClBattlefieldUI } from './cl_battlefield_ui';
+import type { ClWasmCard, ClWasmBattlefield } from '../cl_wasm';
 
 // =============================================================================
 // UI 配置
@@ -163,10 +166,10 @@ export class ClPlayerInfoPanel {
     update(player: ClPlayerData): void {
         this.nameText.text = player.name;
         
-        // 生命值
-        const healthPercent = (player.health / player.max_health) * 100;
+        // 生命值 (使用 stats.hp)
+        const healthPercent = (player.stats.hp / player.stats.max_hp) * 100;
         this.healthFill.width = `${healthPercent}%`;
-        this.healthText.text = `${player.health}/${player.max_health}`;
+        this.healthText.text = `${player.stats.hp}/${player.stats.max_hp}`;
         
         // 根据生命值改变颜色
         if (healthPercent <= 25) {
@@ -177,11 +180,11 @@ export class ClPlayerInfoPanel {
             this.healthFill.background = CL_UI_CONFIG.HEALTH_COLOR;
         }
         
-        // 状态
-        this.energyText.text = `⚡ ${player.energy}/${player.max_energy}`;
-        this.blockText.text = `🛡️ ${player.block}`;
-        this.deckText.text = `📚 ${player.deck_count}`;
-        this.discardText.text = `🗑️ ${player.discard_count}`;
+        // 状态 (使用 stats)
+        this.energyText.text = `⚡ ${player.stats.energy}/${player.stats.max_energy}`;
+        this.blockText.text = `🛡️ ${player.stats.defense}`;
+        this.deckText.text = `📚 ${player.deck.length}`;
+        this.discardText.text = `🗑️ ${player.discard.length}`;
     }
 
     /**
@@ -345,12 +348,27 @@ export class ClEndTurnButton {
 // 战斗 UI 管理器
 // =============================================================================
 
+export interface ClBattleUIEvents {
+    onEndTurn?: () => void;
+    onAcquireCard?: (cardId: string) => void;
+    onRefreshPool?: () => void;
+    onDeployCard?: (cardId: string, slotIndex: number) => void;
+    onSlotClick?: (slotIndex: number) => void;
+}
+
 export class ClBattleUI {
     private gui: AdvancedDynamicTexture;
     private playerPanel: ClPlayerInfoPanel;
     private opponentPanel: ClPlayerInfoPanel;
     private turnIndicator: ClTurnIndicator;
     private endTurnButton: ClEndTurnButton;
+    
+    // 新增 UI 组件
+    private cardPoolUI: ClCardPoolUI | null = null;
+    private battlefieldUI: ClBattlefieldUI | null = null;
+    
+    // 事件
+    private events: ClBattleUIEvents = {};
 
     constructor(scene: Scene) {
         // 创建全屏 GUI
@@ -361,6 +379,54 @@ export class ClBattleUI {
         this.opponentPanel = new ClPlayerInfoPanel(this.gui, true);
         this.turnIndicator = new ClTurnIndicator(this.gui);
         this.endTurnButton = new ClEndTurnButton(this.gui);
+        
+        // 初始化卡池和战场 UI
+        this.cardPoolUI = new ClCardPoolUI(scene);
+        this.battlefieldUI = new ClBattlefieldUI(scene);
+        
+        // 绑定事件
+        this.bindEvents();
+    }
+    
+    /**
+     * 绑定内部事件到外部事件
+     */
+    private bindEvents(): void {
+        // 结束回合按钮
+        this.endTurnButton.onClick = () => {
+            this.events.onEndTurn?.();
+        };
+        
+        // 卡池事件
+        if (this.cardPoolUI) {
+            this.cardPoolUI.setEvents({
+                onAcquireCard: (cardId) => {
+                    this.events.onAcquireCard?.(cardId);
+                },
+                onRefreshPool: () => {
+                    this.events.onRefreshPool?.();
+                }
+            });
+        }
+        
+        // 战场事件
+        if (this.battlefieldUI) {
+            this.battlefieldUI.setEvents({
+                onSlotClick: (slotIndex) => {
+                    this.events.onSlotClick?.(slotIndex);
+                },
+                onCardDrop: (cardId, slotIndex) => {
+                    this.events.onDeployCard?.(cardId, slotIndex);
+                }
+            });
+        }
+    }
+    
+    /**
+     * 设置事件回调
+     */
+    setEvents(events: ClBattleUIEvents): void {
+        this.events = { ...this.events, ...events };
     }
 
     /**
@@ -390,14 +456,58 @@ export class ClBattleUI {
         this.turnIndicator.update(state.turn, isPlayerTurn);
         
         // 更新结束回合按钮
-        this.endTurnButton.setEnabled(isPlayerTurn && state.phase === 'playing');
+        this.endTurnButton.setEnabled(isPlayerTurn && state.phase === 'Playing');
+    }
+    
+    /**
+     * 更新卡池显示
+     */
+    updateCardPool(cards: ClWasmCard[], actionPoints: number, maxActionPoints: number, drawPile: number, discardPile: number): void {
+        if (this.cardPoolUI) {
+            this.cardPoolUI.updateDisplay(cards);
+            this.cardPoolUI.updateActionPoints(actionPoints, maxActionPoints);
+            this.cardPoolUI.updatePoolCount(drawPile, discardPile);
+        }
+    }
+    
+    /**
+     * 显示/隐藏卡池
+     */
+    setCardPoolVisible(visible: boolean): void {
+        if (visible) {
+            this.cardPoolUI?.show();
+        } else {
+            this.cardPoolUI?.hide();
+        }
+    }
+    
+    /**
+     * 更新战场显示
+     */
+    updateBattlefields(playerBattlefield: ClWasmBattlefield, opponentBattlefield: ClWasmBattlefield): void {
+        this.battlefieldUI?.updatePlayerBattlefield(playerBattlefield);
+        this.battlefieldUI?.updateOpponentBattlefield(opponentBattlefield);
+    }
+    
+    /**
+     * 高亮可部署槽位
+     */
+    highlightDeployableSlots(): void {
+        this.battlefieldUI?.highlightEmptySlots(true);
+    }
+    
+    /**
+     * 清除槽位高亮
+     */
+    clearSlotHighlights(): void {
+        this.battlefieldUI?.highlightEmptySlots(false);
     }
 
     /**
-     * 设置结束回合回调
+     * 设置结束回合回调 (保留向后兼容)
      */
     setEndTurnCallback(callback: () => void): void {
-        this.endTurnButton.onClick = callback;
+        this.events.onEndTurn = callback;
     }
 
     /**
@@ -408,6 +518,8 @@ export class ClBattleUI {
         this.opponentPanel.dispose();
         this.turnIndicator.dispose();
         this.endTurnButton.dispose();
+        this.cardPoolUI?.dispose();
+        this.battlefieldUI?.dispose();
         this.gui.dispose();
     }
 }

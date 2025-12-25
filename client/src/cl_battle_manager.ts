@@ -7,59 +7,23 @@
  */
 
 import { GwBattle } from 'game-wasm';
-import { cl_initWasm, cl_isWasmReady } from './cl_wasm';
+import { 
+    cl_initWasm, 
+    cl_isWasmReady, 
+    ClWasmBattleState,
+    ClWasmPlayer,
+    ClWasmCard,
+    ClWasmPlayCardResult,
+} from './cl_wasm';
 
 // =============================================================================
-// 类型定义 (从 WASM 获取的数据结构)
+// 类型别名 - 使用 WASM 类型
 // =============================================================================
 
-export interface ClCardData {
-    id: string;
-    name: string;
-    cost: number;
-    description: string;
-    card_type: 'attack' | 'skill' | 'power';
-    rarity: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
-    damage?: number;
-    block?: number;
-    effects?: ClEffectData[];
-}
-
-export interface ClEffectData {
-    effect_type: string;
-    value: number;
-    duration?: number;
-}
-
-export interface ClPlayerData {
-    id: string;
-    name: string;
-    health: number;
-    max_health: number;
-    energy: number;
-    max_energy: number;
-    block: number;
-    hand: ClCardData[];
-    deck_count: number;
-    discard_count: number;
-}
-
-export interface ClBattleState {
-    battle_id: string;
-    turn: number;
-    current_player_index: number;
-    phase: 'waiting' | 'playing' | 'finished';
-    players: ClPlayerData[];
-    winner_id?: string;
-}
-
-export interface ClPlayCardResult {
-    success: boolean;
-    damage_dealt?: number;
-    block_gained?: number;
-    effects_applied?: string[];
-    error?: string;
-}
+export type ClCardData = ClWasmCard;
+export type ClPlayerData = ClWasmPlayer;
+export type ClBattleState = ClWasmBattleState;
+export type ClPlayCardResult = ClWasmPlayCardResult;
 
 // =============================================================================
 // 战斗管理器
@@ -130,7 +94,13 @@ export class ClBattleManager {
      */
     playCard(playerId: string, cardId: string, targetId: string): ClPlayCardResult {
         if (!this.battle) {
-            return { success: false, error: '战斗未创建' };
+            return { 
+                success: false, 
+                error: '战斗未创建',
+                damage_dealt: 0,
+                effects_triggered: [],
+                target_killed: false,
+            };
         }
 
         try {
@@ -151,7 +121,13 @@ export class ClBattleManager {
             return result;
         } catch (e) {
             const error = e instanceof Error ? e.message : String(e);
-            return { success: false, error };
+            return { 
+                success: false, 
+                error,
+                damage_dealt: 0,
+                effects_triggered: [],
+                target_killed: false,
+            };
         }
     }
 
@@ -243,6 +219,144 @@ export class ClBattleManager {
      */
     getWinnerId(): string | null {
         return this.battle?.winner_id ?? null;
+    }
+    
+    // =========================================================================
+    // 公共卡池相关
+    // =========================================================================
+    
+    /**
+     * 获取公共卡池展示区
+     */
+    getPoolDisplay(): ClCardData[] {
+        if (!this.battle) return [];
+        
+        try {
+            const displayJson = this.battle.get_pool_display_json();
+            return JSON.parse(displayJson);
+        } catch (e) {
+            console.error('获取卡池失败:', e);
+            return [];
+        }
+    }
+    
+    /**
+     * 从卡池获取卡牌
+     */
+    acquireCard(playerId: string, cardId: string): { success: boolean; card?: ClCardData; error?: string } {
+        if (!this.battle) {
+            return { success: false, error: '战斗未创建' };
+        }
+        
+        try {
+            const cardJson = this.battle.acquire_card(playerId, cardId);
+            const card: ClCardData = JSON.parse(cardJson);
+            
+            // 刷新状态
+            this.refreshState();
+            
+            return { success: true, card };
+        } catch (e) {
+            const error = e instanceof Error ? e.message : String(e);
+            return { success: false, error };
+        }
+    }
+    
+    /**
+     * 刷新卡池
+     */
+    refreshPool(playerId: string): { success: boolean; error?: string } {
+        if (!this.battle) {
+            return { success: false, error: '战斗未创建' };
+        }
+        
+        try {
+            this.battle.refresh_pool(playerId);
+            
+            // 刷新状态
+            this.refreshState();
+            
+            return { success: true };
+        } catch (e) {
+            const error = e instanceof Error ? e.message : String(e);
+            return { success: false, error };
+        }
+    }
+    
+    /**
+     * 获取玩家行动力
+     */
+    getActionPoints(playerId: string): number {
+        if (!this.battle) return 0;
+        return this.battle.get_action_points(playerId);
+    }
+    
+    /**
+     * 获取卡池统计
+     */
+    getPoolStats(): { drawPile: number; discardPile: number } {
+        if (!this.battle) {
+            return { drawPile: 0, discardPile: 0 };
+        }
+        
+        return {
+            drawPile: this.battle.get_pool_draw_count(),
+            discardPile: this.battle.get_pool_discard_count(),
+        };
+    }
+    
+    // =========================================================================
+    // 战场部署相关
+    // =========================================================================
+    
+    /**
+     * 部署卡牌到战场
+     */
+    deployCard(playerId: string, cardId: string, slotIndex: number): { success: boolean; error?: string } {
+        if (!this.battle) {
+            return { success: false, error: '战斗未创建' };
+        }
+        
+        try {
+            this.battle.deploy_card(playerId, cardId, slotIndex);
+            
+            // 刷新状态
+            this.refreshState();
+            
+            return { success: true };
+        } catch (e) {
+            const error = e instanceof Error ? e.message : String(e);
+            return { success: false, error };
+        }
+    }
+    
+    /**
+     * 获取玩家战场状态
+     */
+    getBattlefield(playerId: string): import('./cl_wasm').ClWasmBattlefield | null {
+        if (!this.battle) return null;
+        
+        try {
+            const bfJson = this.battle.get_battlefield_json(playerId);
+            return JSON.parse(bfJson);
+        } catch (e) {
+            console.error('获取战场失败:', e);
+            return null;
+        }
+    }
+    
+    /**
+     * 获取玩家战场空闲槽位
+     */
+    getEmptySlots(playerId: string): number[] {
+        if (!this.battle) return [];
+        
+        try {
+            return this.battle.get_empty_slots(playerId) as number[];
+        } catch (e) {
+            console.error('获取空闲槽位失败:', e);
+            return [];
+        }
     }
 
     /**

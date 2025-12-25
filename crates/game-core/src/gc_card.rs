@@ -167,6 +167,49 @@ impl GcCard {
         }
     }
     
+    /// 创建治疗卡牌
+    pub fn gc_new_heal(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        cost: u32,
+        heal_amount: u32,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            template_id: "heal".to_string(),
+            name: name.into(),
+            description: format!("恢复 {} 点生命值", heal_amount),
+            card_type: GcCardType::Skill,
+            rarity: GcCardRarity::Common,
+            cost,
+            base_damage: heal_amount, // 用 base_damage 存储治疗量
+            base_defense: 0,
+            target_type: GcTargetType::SelfTarget,
+            effects: Vec::new(),
+        }
+    }
+    
+    /// 创建特殊卡牌
+    pub fn gc_new_special(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        cost: u32,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            template_id: "special".to_string(),
+            name: name.into(),
+            description: "一张神秘的卡牌".to_string(),
+            card_type: GcCardType::Special,
+            rarity: GcCardRarity::Rare,
+            cost,
+            base_damage: 0,
+            base_defense: 0,
+            target_type: GcTargetType::None,
+            effects: Vec::new(),
+        }
+    }
+    
     /// 是否需要选择目标
     pub fn gc_needs_target(&self) -> bool {
         matches!(

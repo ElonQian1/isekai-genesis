@@ -5,7 +5,7 @@
 //! 文档: 文档/01-game-core.md
 
 use serde::{Deserialize, Serialize};
-use crate::GcPlayerId;
+use crate::{GcPlayerId, GcTargetType};
 
 // =============================================================================
 // 效果类型
@@ -14,12 +14,18 @@ use crate::GcPlayerId;
 /// 效果类型
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GcEffectType {
-    /// 造成伤害
+    /// 造成伤害 (通用)
     Damage,
+    /// 物理伤害
+    PhysicalDamage,
+    /// 魔法伤害
+    MagicDamage,
     /// 治疗
     Heal,
     /// 获得护甲/防御
     Armor,
+    /// 获得格挡 (同 Armor)
+    GainBlock,
     /// 抽牌
     DrawCard,
     /// 弃牌
@@ -32,6 +38,14 @@ pub enum GcEffectType {
     Stun,
     /// 中毒
     Poison,
+    /// 施加中毒 (同 Poison)
+    ApplyPoison,
+    /// 虚弱
+    Weak,
+    /// 施加虚弱 (同 Weak)
+    ApplyWeak,
+    /// 嘲讽
+    Taunt,
 }
 
 // =============================================================================
@@ -52,6 +66,9 @@ pub struct GcEffect {
     
     /// 效果名称 (用于显示)
     pub name: String,
+
+    /// 效果目标 (覆盖卡牌目标)
+    pub target: GcTargetType,
 }
 
 impl GcEffect {
@@ -62,6 +79,7 @@ impl GcEffect {
             value,
             duration: 0,
             name: "伤害".to_string(),
+            target: GcTargetType::SingleEnemy,
         }
     }
     
@@ -72,6 +90,7 @@ impl GcEffect {
             value,
             duration: 0,
             name: "治疗".to_string(),
+            target: GcTargetType::SelfTarget,
         }
     }
     
@@ -82,6 +101,7 @@ impl GcEffect {
             value,
             duration: 0,
             name: "护甲".to_string(),
+            target: GcTargetType::SelfTarget,
         }
     }
     
@@ -92,6 +112,7 @@ impl GcEffect {
             value: count,
             duration: 0,
             name: "抽牌".to_string(),
+            target: GcTargetType::SelfTarget,
         }
     }
     
@@ -102,6 +123,7 @@ impl GcEffect {
             value: damage,
             duration,
             name: "中毒".to_string(),
+            target: GcTargetType::SingleEnemy,
         }
     }
     
@@ -112,6 +134,7 @@ impl GcEffect {
             value: 0,
             duration,
             name: "眩晕".to_string(),
+            target: GcTargetType::SingleEnemy,
         }
     }
 }

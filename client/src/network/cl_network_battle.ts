@@ -1,6 +1,21 @@
 /**
  * 网络战斗管理器 - 处理多人对战
  * 
+ * @deprecated 此文件已废弃，请使用新的模块化网络架构:
+ * - ClBattleService: 战斗服务 (游戏内通信)
+ * - ClLobbyService: 大厅服务 (房间管理)
+ * 
+ * 迁移指南:
+ * ```typescript
+ * // 旧代码
+ * const battle = cl_getNetworkBattleManager();
+ * battle.playCard(cardId, targetId);
+ * 
+ * // 新代码
+ * const battle = cl_getBattleService();
+ * battle.playCard(cardId, targetId);
+ * ```
+ * 
  * 模块: client/network
  * 前缀: Cl
  * 文档: 文档/04-client.md

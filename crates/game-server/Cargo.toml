@@ -14,9 +14,11 @@ path = "src/main.rs"
 game-core = { path = "../game-core" }
 
 # Web 框架
-axum = { workspace = true }
+axum = { workspace = true, features = ["multipart"] }
 tower = "0.4"
-tower-http = { version = "0.5", features = ["cors", "trace"] }
+tower-http = { version = "0.5", features = ["cors", "trace", "fs"] }
+axum-extra = { version = "0.9", features = ["typed-header"] }
+headers = "0.4"
 
 # 异步运行时
 tokio = { workspace = true }
@@ -38,6 +40,7 @@ uuid = { workspace = true }
 # 日志
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-appender = "0.2"
 
 # 时间
 chrono = { workspace = true }
@@ -48,6 +51,11 @@ dotenvy = "0.15"
 # 错误处理
 thiserror = { workspace = true }
 anyhow = "1.0"
+argon2 = "0.5.3"
+jsonwebtoken = "9.3"
+
+# SSE 流
+tokio-stream = { version = "0.1", features = ["sync"] }
 
 [dev-dependencies]
 tokio-test = "0.4"

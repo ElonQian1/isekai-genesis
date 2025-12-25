@@ -18,4 +18,8 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 uuid = { workspace = true }
 
+# 使用 js 特性来支持 WASM
+getrandom = { version = "0.2", features = ["js"] }
+rand = "0.8"
+
 [dev-dependencies]

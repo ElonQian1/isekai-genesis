@@ -50,6 +50,8 @@ export interface ClHandCard {
     mesh: Mesh;
     index: number;
     isHovered: boolean;
+    isSelected: boolean;
+    isPlayable: boolean;
     originalPosition: Vector3;
     originalRotation: Vector3;
 }
@@ -98,6 +100,8 @@ export class ClHandManager {
             mesh: mesh,
             index: this.cards.length,
             isHovered: false,
+            isSelected: false,
+            isPlayable: true,
             originalPosition: Vector3.Zero(),
             originalRotation: Vector3.Zero(),
         };

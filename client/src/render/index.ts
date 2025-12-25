@@ -23,3 +23,9 @@ export * from './cl_battle_scene';
 
 // 卡牌渲染器
 export * from './cl_card_renderer';
+
+// 大世界场景 (模块化版本)
+export * from './world/cl_world_scene_modular';
+
+// 战斗渲染模块 (新模块化版本，单独导出避免冲突)
+export * as BattleRender from './battle';

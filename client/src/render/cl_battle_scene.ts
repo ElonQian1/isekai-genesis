@@ -316,6 +316,22 @@ export class ClBattleScene {
     }
 
     /**
+     * 显示战斗场景
+     */
+    show(): void {
+        this.sceneRoot.setEnabled(true);
+        this.ambientParticles?.start();
+    }
+
+    /**
+     * 隐藏战斗场景
+     */
+    hide(): void {
+        this.sceneRoot.setEnabled(false);
+        this.ambientParticles?.stop();
+    }
+
+    /**
      * 获取玩家手牌管理器
      */
     getPlayerHand(): ClHandManager {

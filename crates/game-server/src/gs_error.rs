@@ -38,6 +38,14 @@ pub enum GsError {
     /// 内部错误
     #[error("内部错误: {0}")]
     GsInternalError(String),
+    
+    /// 内部错误 (简化别名)
+    #[error("内部错误: {0}")]
+    InternalError(String),
+    
+    /// 认证错误
+    #[error("认证错误: {0}")]
+    AuthError(String),
 }
 
 impl IntoResponse for GsError {
@@ -49,6 +57,8 @@ impl IntoResponse for GsError {
             GsError::GsAuthFailed(_) => (StatusCode::UNAUTHORIZED, "AUTH_FAILED", self.to_string()),
             GsError::GsDatabaseError(_) => (StatusCode::INTERNAL_SERVER_ERROR, "DATABASE_ERROR", "数据库错误".to_string()),
             GsError::GsInternalError(_) => (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "内部错误".to_string()),
+            GsError::InternalError(_) => (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", self.to_string()),
+            GsError::AuthError(_) => (StatusCode::UNAUTHORIZED, "AUTH_ERROR", self.to_string()),
         };
 
         let body = json!({

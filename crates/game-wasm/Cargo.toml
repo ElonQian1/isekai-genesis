@@ -31,6 +31,7 @@ console_error_panic_hook = "0.1"
 
 # WASM 日志
 web-sys = { version = "0.3", features = ["console"] }
+js-sys = "0.3"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
