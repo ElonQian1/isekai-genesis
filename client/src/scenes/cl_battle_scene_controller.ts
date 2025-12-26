@@ -132,7 +132,15 @@ export class ClBattleSceneController {
      */
     leave(): void {
         this.battleScene?.hide();
-        this.battleScene3D?.endBattle(false);
+        
+        // 临时移除回调，防止 endBattle 触发循环调用
+        if (this.battleScene3D) {
+            const originalCallback = this.battleScene3D.onBattleEnd;
+            this.battleScene3D.onBattleEnd = null;
+            this.battleScene3D.endBattle(false);
+            this.battleScene3D.onBattleEnd = originalCallback;
+        }
+        
         this.battleUI?.dispose();
         this.battleUI = null;
     }
