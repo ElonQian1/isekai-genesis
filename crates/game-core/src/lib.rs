@@ -38,6 +38,19 @@ mod gc_inventory;
 mod gc_equipment_templates;
 mod gc_card_templates;
 mod gc_mcp;
+mod gc_battle_terrain;
+mod gc_monster;
+mod gc_summon;
+mod gc_turn;
+mod gc_combat;
+
+// 酒馆模式新增模块
+mod gc_economy;
+mod gc_level_system;
+mod gc_merge;
+mod gc_graveyard;
+mod gc_tavern_shop;
+mod gc_season;
 
 // 公开导出
 pub use gc_types::*;
@@ -62,4 +75,17 @@ pub use gc_map_templates::*;
 pub use gc_profession::*;
 pub use gc_talent::*;
 pub use gc_talent_templates::*;
+pub use gc_battle_terrain::*;
+pub use gc_monster::*;
+pub use gc_summon::*;
+pub use gc_turn::*;
+pub use gc_combat::*;
+
+// 酒馆模式导出
+pub use gc_economy::*;
+pub use gc_level_system::*;
+pub use gc_merge::*;
+pub use gc_graveyard::*;
+pub use gc_tavern_shop::*;
+pub use gc_season::*;
 

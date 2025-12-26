@@ -12,7 +12,7 @@
 
 use wasm_bindgen::prelude::*;
 use game_core::{
-    GcProfessionType, GcProfession, GcTalentTree, GcPlayerTalents,
+    GcProfessionType, GcProfession, GcPlayerTalents,
     gc_create_knight_talent_tree, gc_create_swordsman_talent_tree,
     gc_create_warlock_talent_tree, gc_create_gunner_talent_tree,
     gc_create_assassin_talent_tree,

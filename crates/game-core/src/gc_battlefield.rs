@@ -333,6 +333,259 @@ impl GcBattlefield {
 }
 
 // =============================================================================
+// 战斗沙盘 (南北双方 + 地形)
+// =============================================================================
+
+use crate::{GcTerrainType, GcMonster};
+
+/// 战斗沙盘 - 支持南北双方对战
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct GcBattleArena {
+    /// 玩家区域地形 (南方)
+    pub player_terrain: GcTerrainType,
+    /// 敌人区域地形 (北方)
+    pub enemy_terrain: GcTerrainType,
+    /// 玩家怪兽槽位 (5个)
+    pub player_monsters: [Option<GcMonster>; 5],
+    /// 敌人怪兽槽位 (5个)
+    pub enemy_monsters: [Option<GcMonster>; 5],
+    /// 本回合是否已普通召唤
+    pub normal_summon_used: bool,
+}
+
+impl Default for GcBattleArena {
+    fn default() -> Self {
+        Self {
+            player_terrain: GcTerrainType::Plain,
+            enemy_terrain: GcTerrainType::Plain,
+            player_monsters: [None, None, None, None, None],
+            enemy_monsters: [None, None, None, None, None],
+            normal_summon_used: false,
+        }
+    }
+}
+
+impl GcBattleArena {
+    /// 创建新的战斗沙盘
+    pub fn new(player_terrain: GcTerrainType, enemy_terrain: GcTerrainType) -> Self {
+        Self {
+            player_terrain,
+            enemy_terrain,
+            ..Default::default()
+        }
+    }
+
+    /// 获取玩家区域已占用槽位
+    pub fn player_occupied_slots(&self) -> [bool; 5] {
+        let mut result = [false; 5];
+        for (i, slot) in self.player_monsters.iter().enumerate() {
+            result[i] = slot.is_some();
+        }
+        result
+    }
+
+    /// 获取敌人区域已占用槽位
+    pub fn enemy_occupied_slots(&self) -> [bool; 5] {
+        let mut result = [false; 5];
+        for (i, slot) in self.enemy_monsters.iter().enumerate() {
+            result[i] = slot.is_some();
+        }
+        result
+    }
+
+    /// 召唤怪兽到玩家区域
+    pub fn summon_player_monster(&mut self, slot: u8, mut monster: GcMonster) -> Result<(), String> {
+        if slot >= 5 {
+            return Err("无效槽位".to_string());
+        }
+        if self.player_monsters[slot as usize].is_some() {
+            return Err("槽位已占用".to_string());
+        }
+        monster.slot = Some(slot);
+        monster.can_attack = false;
+        self.player_monsters[slot as usize] = Some(monster);
+        Ok(())
+    }
+
+    /// 回合开始 - 启用攻击
+    pub fn on_turn_start(&mut self) {
+        self.normal_summon_used = false;
+        for monster in self.player_monsters.iter_mut().flatten() {
+            monster.can_attack = true;
+        }
+    }
+
+    /// 获取敌方ATK最低的怪兽槽位 (自动攻击目标)
+    pub fn get_weakest_enemy_slot(&self) -> Option<u8> {
+        let mut min_atk = u32::MAX;
+        let mut target_slot = None;
+        
+        for (i, monster) in self.enemy_monsters.iter().enumerate() {
+            if let Some(m) = monster {
+                let effective_atk = m.effective_atk(self.enemy_terrain);
+                if effective_atk < min_atk {
+                    min_atk = effective_atk;
+                    target_slot = Some(i as u8);
+                }
+            }
+        }
+        target_slot
+    }
+    
+    // =========================================================================
+    // 酒馆模式: 双向部署系统
+    // =========================================================================
+    
+    /// 从手牌区部署怪兽到战场
+    /// 
+    /// # 参数
+    /// - `bench`: 手牌区怪兽列表
+    /// - `monster_id`: 要部署的怪兽ID
+    /// - `slot`: 目标槽位 (0-4)
+    /// 
+    /// # 返回
+    /// 部署是否成功
+    pub fn deploy_from_bench(
+        &mut self,
+        bench: &mut Vec<GcMonster>,
+        monster_id: &str,
+        slot: u8,
+    ) -> Result<(), String> {
+        if slot >= 5 {
+            return Err("无效槽位".to_string());
+        }
+        
+        if self.player_monsters[slot as usize].is_some() {
+            return Err("槽位已占用".to_string());
+        }
+        
+        // 从手牌区找到怪兽
+        let idx = bench.iter()
+            .position(|m| m.id == monster_id)
+            .ok_or_else(|| "手牌区没有该怪兽".to_string())?;
+        
+        let mut monster = bench.remove(idx);
+        monster.slot = Some(slot);
+        monster.can_attack = false; // 刚部署不能攻击
+        
+        self.player_monsters[slot as usize] = Some(monster);
+        Ok(())
+    }
+    
+    /// 从战场撤回怪兽到手牌区
+    /// 
+    /// # 参数
+    /// - `bench`: 手牌区怪兽列表
+    /// - `slot`: 要撤回的槽位 (0-4)
+    /// 
+    /// # 返回
+    /// 撤回的怪兽 (如果有)
+    pub fn recall_to_bench(
+        &mut self,
+        bench: &mut Vec<GcMonster>,
+        slot: u8,
+    ) -> Option<GcMonster> {
+        if slot >= 5 {
+            return None;
+        }
+        
+        if let Some(mut monster) = self.player_monsters[slot as usize].take() {
+            monster.slot = None;
+            monster.can_attack = false;
+            // 恢复满血 (撤回时)
+            monster.current_hp = monster.effective_max_hp();
+            bench.push(monster.clone());
+            Some(monster)
+        } else {
+            None
+        }
+    }
+    
+    /// 战场内换位
+    /// 
+    /// # 参数
+    /// - `slot_a`: 槽位A
+    /// - `slot_b`: 槽位B
+    pub fn swap_positions(&mut self, slot_a: u8, slot_b: u8) -> Result<(), String> {
+        if slot_a >= 5 || slot_b >= 5 {
+            return Err("无效槽位".to_string());
+        }
+        
+        if slot_a == slot_b {
+            return Ok(());
+        }
+        
+        // 交换槽位内容
+        self.player_monsters.swap(slot_a as usize, slot_b as usize);
+        
+        // 更新怪兽的slot字段
+        if let Some(ref mut monster) = self.player_monsters[slot_a as usize] {
+            monster.slot = Some(slot_a);
+        }
+        if let Some(ref mut monster) = self.player_monsters[slot_b as usize] {
+            monster.slot = Some(slot_b);
+        }
+        
+        Ok(())
+    }
+    
+    /// 获取第一个空槽位
+    pub fn first_empty_slot(&self) -> Option<u8> {
+        for (i, slot) in self.player_monsters.iter().enumerate() {
+            if slot.is_none() {
+                return Some(i as u8);
+            }
+        }
+        None
+    }
+    
+    /// 获取玩家怪兽数量
+    pub fn player_monster_count(&self) -> usize {
+        self.player_monsters.iter().filter(|m| m.is_some()).count()
+    }
+    
+    /// 获取敌方怪兽数量
+    pub fn enemy_monster_count(&self) -> usize {
+        self.enemy_monsters.iter().filter(|m| m.is_some()).count()
+    }
+    
+    /// 战场是否已满 (考虑槽位限制)
+    pub fn is_player_side_full(&self, max_slots: u8) -> bool {
+        let max = (max_slots as usize).min(5);
+        for i in 0..max {
+            if self.player_monsters[i].is_none() {
+                return false;
+            }
+        }
+        true
+    }
+    
+    /// 根据ID查找玩家怪兽
+    pub fn find_player_monster(&self, monster_id: &str) -> Option<(u8, &GcMonster)> {
+        for (i, opt) in self.player_monsters.iter().enumerate() {
+            if let Some(m) = opt {
+                if m.id == monster_id {
+                    return Some((i as u8, m));
+                }
+            }
+        }
+        None
+    }
+    
+    /// 根据ID查找玩家怪兽 (可变)
+    pub fn find_player_monster_mut(&mut self, monster_id: &str) -> Option<(u8, &mut GcMonster)> {
+        for (i, opt) in self.player_monsters.iter_mut().enumerate() {
+            if let Some(m) = opt {
+                if m.id == monster_id {
+                    return Some((i as u8, m));
+                }
+            }
+        }
+        None
+    }
+}
+
+// =============================================================================
 // 测试
 // =============================================================================
 

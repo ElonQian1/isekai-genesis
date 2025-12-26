@@ -10,7 +10,7 @@
 //! - 属性统计
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+
 use crate::{
     GcEquipment, GcEquipmentSlot, GcBaseStats, GcCombatStats, 
     GcProfessionType
@@ -242,7 +242,7 @@ mod tests {
         inv.gc_add_item(sword).unwrap();
         
         // 装备
-        assert!(inv.gc_equip_item("s1", 1, GcProfessionType::Warrior).is_ok());
+        assert!(inv.gc_equip_item("s1", 1, GcProfessionType::Knight).is_ok());
         assert_eq!(inv.items.len(), 0);
         assert!(inv.equipped.weapon.is_some());
         
@@ -267,11 +267,11 @@ mod tests {
         inv.gc_add_item(s2).unwrap();
         
         // 装备 s1
-        inv.gc_equip_item("s1", 1, GcProfessionType::Warrior).unwrap();
+        inv.gc_equip_item("s1", 1, GcProfessionType::Knight).unwrap();
         assert_eq!(inv.equipped.weapon.as_ref().unwrap().id, "s1");
         
         // 装备 s2 (应该自动卸下 s1)
-        inv.gc_equip_item("s2", 1, GcProfessionType::Warrior).unwrap();
+        inv.gc_equip_item("s2", 1, GcProfessionType::Knight).unwrap();
         assert_eq!(inv.equipped.weapon.as_ref().unwrap().id, "s2");
         
         // s1 应该在背包里

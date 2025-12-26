@@ -47,3 +47,36 @@ export { ClBattleEffects, CL_BATTLE_EFFECTS_CONFIG } from './cl_battle_effects';
 // 特效子模块 (推荐使用这些更细粒度的模块)
 // =============================================================================
 export * from './effects';
+
+// =============================================================================
+// 新版战斗沙盘系统
+// =============================================================================
+
+// 战场沙盘渲染 (南北双方 + 地形)
+export { ClBattleArenaRenderer, type TerrainType, type BattleArenaConfig } from './cl_battle_arena';
+
+// 怪兽渲染器 (占位几何体 + 名称)
+export { ClMonsterMesh, type MonsterAttribute, type MonsterDisplayData, type MonsterPosition } from './cl_monster_renderer';
+
+// 设备检测与相机
+export { 
+    detectDeviceType, 
+    detectOrientation, 
+    createBattleCamera, 
+    onOrientationChange,
+    type DeviceType,
+    type Orientation,
+    type BattleCameraConfig 
+} from './cl_device_camera';
+
+// 新版战斗沙盘场景 (完整封装)
+export { ClBattleArenaScene, type ArenaBattleConfig, type TurnPhase, type TurnState } from './cl_battle_arena_scene';
+
+// 祭品召唤系统
+export { ClTributeSystem, type TributeSummonTarget, type TributeState } from './cl_tribute_system';
+
+// 地形粒子特效
+export { ClTerrainEffects, type PerformanceLevel } from './cl_terrain_effects';
+
+// 怪兽模型加载器
+export { ClMonsterModelLoader, type MonsterModelConfig, type ModelLoadResult } from './cl_monster_loader';

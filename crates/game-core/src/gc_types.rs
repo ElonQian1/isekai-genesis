@@ -7,6 +7,75 @@
 use serde::{Deserialize, Serialize};
 
 // =============================================================================
+// 存档版本系统
+// =============================================================================
+
+/// 当前存档版本
+pub const GC_SAVE_VERSION: GcSaveVersion = GcSaveVersion {
+    major: 2,
+    minor: 0,
+    patch: 0,
+};
+
+/// 存档版本号
+/// 
+/// 版本规则:
+/// - major: 不兼容的重大变更，需要重置存档
+/// - minor: 新增功能，可自动迁移
+/// - patch: Bug修复，完全兼容
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct GcSaveVersion {
+    pub major: u32,
+    pub minor: u32,
+    pub patch: u32,
+}
+
+impl GcSaveVersion {
+    /// 创建新版本号
+    pub fn new(major: u32, minor: u32, patch: u32) -> Self {
+        Self { major, minor, patch }
+    }
+
+    /// 检查是否兼容（同 major 版本可迁移）
+    pub fn is_compatible_with(&self, other: &GcSaveVersion) -> bool {
+        self.major == other.major
+    }
+
+    /// 检查是否需要迁移
+    pub fn needs_migration(&self, target: &GcSaveVersion) -> bool {
+        self.major == target.major && (self.minor < target.minor || self.patch < target.patch)
+    }
+
+    /// 检查是否需要重置（major 版本不同）
+    pub fn needs_reset(&self, target: &GcSaveVersion) -> bool {
+        self.major != target.major
+    }
+}
+
+impl Default for GcSaveVersion {
+    fn default() -> Self {
+        GC_SAVE_VERSION
+    }
+}
+
+impl std::fmt::Display for GcSaveVersion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}.{}.{}", self.major, self.minor, self.patch)
+    }
+}
+
+/// 存档迁移结果
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum GcMigrationResult {
+    /// 无需迁移，版本相同
+    NoMigrationNeeded,
+    /// 迁移成功
+    MigrationSuccess { from: GcSaveVersion, to: GcSaveVersion },
+    /// 需要重置存档（major 版本不兼容）
+    ResetRequired { old_version: GcSaveVersion, current_version: GcSaveVersion },
+}
+
+// =============================================================================
 // 游戏配置
 // =============================================================================
 

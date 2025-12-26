@@ -13,6 +13,9 @@ mod gw_utils;
 mod gw_map;
 mod gw_profession;
 mod gw_equipment;
+mod gw_terrain;
+mod gw_monster;
+mod gw_tavern;
 
 pub use gw_bridge::*;
 pub use gw_battle::*;
@@ -21,6 +24,9 @@ pub use gw_utils::*;
 pub use gw_map::*;
 pub use gw_profession::*;
 pub use gw_equipment::*;
+pub use gw_terrain::*;
+pub use gw_monster::*;
+pub use gw_tavern::*;
 
 use wasm_bindgen::prelude::*;
 

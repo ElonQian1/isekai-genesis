@@ -11,6 +11,11 @@ import init, {
     gw_health_check,
     gw_create_test_battle,
     gw_preview_damage,
+    gw_generate_battle_terrain,
+    gw_get_terrain_modifier,
+    gw_migrate_save,
+    gw_validate_normal_summon,
+    gw_validate_tribute_summon,
     GwPlayer,
     GwCard,
     GwBattle,
@@ -330,3 +335,253 @@ export interface ClWasmRaidFormation {
     current_action_index: number;
 }
 
+// =============================================================================
+// 战斗地形系统
+// =============================================================================
+
+/** 地形类型 */
+export type ClWasmTerrainType = 'plain' | 'volcano' | 'glacier' | 'ocean' | 'swamp' | 'shadow' | 'holy' | 'forest' | 'mountain';
+
+/** 怪兽属性 */
+export type ClWasmMonsterAttribute = 'none' | 'fire' | 'water' | 'wind' | 'earth' | 'light' | 'dark';
+
+/** 战斗结果 */
+export interface ClWasmBattleResult {
+    attacker_atk: number;
+    defender_def: number;
+    damage: number;
+    defender_destroyed: boolean;
+    counter_damage: number;
+    attacker_destroyed: boolean;
+}
+
+/** 地形修正 */
+export interface ClWasmTerrainModifier {
+    atk_percent: number;
+    def_percent: number;
+    hp_per_turn_percent: number;
+    dodge_bonus: number;
+    damage_taken_percent: number;
+    healing_bonus_percent: number;
+}
+
+/** 战斗地形生成结果 */
+export interface ClWasmBattleTerrainResult {
+    player_terrain: string;
+    enemy_terrain: string;
+    player_terrain_name: string;
+    enemy_terrain_name: string;
+    player_color: number[];
+    enemy_color: number[];
+}
+
+/**
+ * 计算怪兽战斗伤害
+ * 使用纯 TypeScript 实现，与 Rust gc_monster 逻辑一致
+ */
+export function cl_calculateBattleDamage(
+    attackerAtk: number,
+    attackerHp: number,
+    attackerAttr: ClWasmMonsterAttribute,
+    attackerTerrain: ClWasmTerrainType,
+    defenderDef: number,
+    defenderHp: number,
+    defenderAttr: ClWasmMonsterAttribute,
+    defenderTerrain: ClWasmTerrainType
+): ClWasmBattleResult {
+    // 获取地形修正
+    const attackerMod = cl_getTerrainModifier(attackerTerrain, attackerAttr);
+    const defenderMod = cl_getTerrainModifier(defenderTerrain, defenderAttr);
+    
+    // 应用地形加成
+    const atkBonus = attackerMod?.atk_percent ?? 0;
+    const defBonus = defenderMod?.def_percent ?? 0;
+    
+    const effectiveAtk = Math.floor(attackerAtk * (100 + atkBonus) / 100);
+    const effectiveDef = Math.floor(defenderDef * (100 + defBonus) / 100);
+    
+    // 计算伤害
+    let damage = 0;
+    let counterDamage = 0;
+    
+    if (effectiveAtk > effectiveDef) {
+        damage = effectiveAtk - effectiveDef;
+    } else if (effectiveAtk < effectiveDef) {
+        counterDamage = effectiveDef - effectiveAtk;
+    }
+    
+    return {
+        attacker_atk: effectiveAtk,
+        defender_def: effectiveDef,
+        damage,
+        defender_destroyed: damage >= defenderHp,
+        counter_damage: counterDamage,
+        attacker_destroyed: counterDamage >= attackerHp
+    };
+}
+
+/**
+ * 计算直接攻击伤害
+ * 使用纯 TypeScript 实现，应用地形加成
+ */
+export function cl_calculateDirectAttack(
+    attackerAtk: number,
+    attackerAttr: ClWasmMonsterAttribute,
+    terrain: ClWasmTerrainType
+): number {
+    const mod = cl_getTerrainModifier(terrain, attackerAttr);
+    const atkBonus = mod?.atk_percent ?? 0;
+    return Math.floor(attackerAtk * (100 + atkBonus) / 100);
+}
+
+/**
+ * 生成战斗地形
+ * @param worldTerrain 世界地形类型（如 "Grassland", "Forest" 等）
+ * @param enemyType 敌人类型
+ * @param seed 随机种子
+ */
+export function cl_generateBattleTerrain(
+    worldTerrain: string,
+    enemyType: string,
+    seed: number
+): ClWasmBattleTerrainResult | null {
+    if (!wasmInitialized) {
+        return null;
+    }
+    try {
+        const result = gw_generate_battle_terrain(worldTerrain, enemyType, seed);
+        return result as ClWasmBattleTerrainResult;
+    } catch (e) {
+        console.error('地形生成失败:', e);
+        return null;
+    }
+}
+
+/**
+ * 获取地形修正
+ */
+export function cl_getTerrainModifier(
+    terrain: ClWasmTerrainType,
+    monsterAttr: ClWasmMonsterAttribute
+): ClWasmTerrainModifier | null {
+    if (!wasmInitialized) {
+        return null;
+    }
+    try {
+        const result = gw_get_terrain_modifier(terrain, monsterAttr);
+        return result as ClWasmTerrainModifier;
+    } catch (e) {
+        console.error('地形修正获取失败:', e);
+        return null;
+    }
+}
+
+// =============================================================================
+// 存档迁移
+// =============================================================================
+
+/**
+ * 存档迁移结果
+ */
+export interface ClWasmMigrationResult {
+    success: boolean;
+    data?: string;
+    error?: string;
+}
+
+/**
+ * 迁移存档数据到当前版本
+ * @param saveJson - 存档 JSON 字符串
+ * @returns 迁移结果 { success, data?, error? }
+ */
+export function cl_migrateSave(saveJson: string): ClWasmMigrationResult {
+    if (!wasmInitialized) {
+        return { success: false, error: 'WASM 模块未初始化' };
+    }
+    try {
+        const migratedJson = gw_migrate_save(saveJson);
+        console.log('✅ 存档迁移成功');
+        return { success: true, data: migratedJson };
+    } catch (e) {
+        const errorMsg = e instanceof Error ? e.message : String(e);
+        console.error('❌ 存档迁移失败:', errorMsg);
+        return { success: false, error: errorMsg };
+    }
+}
+
+// =============================================================================
+// 召唤验证
+// =============================================================================
+
+/**
+ * 普通召唤验证结果
+ */
+export interface ClWasmSummonValidation {
+    valid: boolean;
+    error?: string;
+}
+
+/**
+ * 验证普通召唤 (4星及以下)
+ * @param level - 怪兽等级 (1-12)
+ * @param normalSummonUsed - 本回合是否已使用普通召唤
+ * @returns 验证结果
+ */
+export function cl_validateNormalSummon(level: number, normalSummonUsed: boolean): ClWasmSummonValidation {
+    if (!wasmInitialized) {
+        // WASM 未初始化时的前端兜底验证
+        if (normalSummonUsed) {
+            return { valid: false, error: '本回合已进行过普通召唤' };
+        }
+        if (level > 4) {
+            return { valid: false, error: `${level}星怪兽需要祭品召唤` };
+        }
+        return { valid: true };
+    }
+    try {
+        const result = gw_validate_normal_summon(level, normalSummonUsed);
+        return result as ClWasmSummonValidation;
+    } catch (e) {
+        console.error('普通召唤验证失败:', e);
+        return { valid: false, error: '验证失败' };
+    }
+}
+
+/**
+ * 验证祭品召唤 (5星及以上)
+ * @param level - 怪兽等级 (5-12)
+ * @param sacrificeSlots - 祭品怪兽槽位索引数组
+ * @param occupiedSlots - 当前场上有怪兽的槽位索引数组
+ * @returns 验证结果
+ */
+export function cl_validateTributeSummon(
+    level: number,
+    sacrificeSlots: number[],
+    occupiedSlots: number[]
+): ClWasmSummonValidation {
+    if (!wasmInitialized) {
+        // WASM 未初始化时的前端兜底验证
+        const requiredTributes = level >= 7 ? 2 : 1;
+        if (sacrificeSlots.length < requiredTributes) {
+            return { valid: false, error: `${level}星怪兽需要 ${requiredTributes} 个祭品` };
+        }
+        // 检查祭品是否在场上
+        for (const slot of sacrificeSlots) {
+            if (!occupiedSlots.includes(slot)) {
+                return { valid: false, error: `槽位 ${slot} 没有怪兽可以作为祭品` };
+            }
+        }
+        return { valid: true };
+    }
+    try {
+        const result = gw_validate_tribute_summon(
+            level,
+            new Uint8Array(sacrificeSlots),
+            new Uint8Array(occupiedSlots)
+        );
+        return result as ClWasmSummonValidation;
+    } catch (e) {
+        console.error('祭品召唤验证失败:', e);
+        return { valid: false, error: '验证失败' };
+    }
+}

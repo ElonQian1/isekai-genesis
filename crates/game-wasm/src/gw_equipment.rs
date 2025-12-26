@@ -14,7 +14,7 @@ use game_core::{
     GcInventory, GcEquipment, GcEquipmentSlot, GcProfessionType,
     GcEquipmentTemplates,
 };
-use serde::{Serialize, Deserialize};
+use serde::Serialize;
 
 // =============================================================================
 // 背包管理器

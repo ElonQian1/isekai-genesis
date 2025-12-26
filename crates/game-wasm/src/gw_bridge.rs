@@ -216,3 +216,105 @@ pub fn gw_card_from_json(json: &str) -> Result<GwCard, JsValue> {
     let inner: GcCard = gw_from_json(json)?;
     Ok(GwCard { inner })
 }
+
+// =============================================================================
+// 存档版本系统
+// =============================================================================
+
+use serde::{Deserialize, Serialize};
+
+/// 版本检查结果 (JS端)
+#[derive(Serialize, Deserialize)]
+pub struct GwVersionCheckResult {
+    /// 当前游戏版本
+    pub current_version: String,
+    /// 存档版本
+    pub save_version: String,
+    /// 是否兼容
+    pub is_compatible: bool,
+    /// 是否需要迁移
+    pub needs_migration: bool,
+    /// 是否需要重置
+    pub needs_reset: bool,
+}
+
+/// 获取当前游戏版本
+#[wasm_bindgen]
+pub fn gw_get_current_version() -> String {
+    GC_SAVE_VERSION.to_string()
+}
+
+/// 检查存档版本兼容性
+/// 输入: 存档版本字符串如 "1.2.3"
+/// 返回: { current_version, save_version, is_compatible, needs_migration, needs_reset }
+#[wasm_bindgen]
+pub fn gw_check_save_version(save_version_str: &str) -> JsValue {
+    // 解析存档版本
+    let parts: Vec<&str> = save_version_str.split('.').collect();
+    let save_version = if parts.len() >= 3 {
+        GcSaveVersion::new(
+            parts[0].parse().unwrap_or(0),
+            parts[1].parse().unwrap_or(0),
+            parts[2].parse().unwrap_or(0),
+        )
+    } else {
+        GcSaveVersion::new(1, 0, 0) // 默认旧版本
+    };
+    
+    let current = GC_SAVE_VERSION;
+    let result = GwVersionCheckResult {
+        current_version: current.to_string(),
+        save_version: save_version.to_string(),
+        is_compatible: save_version.is_compatible_with(&current),
+        needs_migration: save_version.needs_migration(&current),
+        needs_reset: save_version.needs_reset(&current),
+    };
+    
+    serde_wasm_bindgen::to_value(&result).unwrap_or(JsValue::NULL)
+}
+
+/// 迁移存档数据 (简化版: 仅添加版本号)
+/// 返回迁移后的 JSON 或错误信息
+#[wasm_bindgen]
+pub fn gw_migrate_save(save_json: &str) -> Result<String, JsValue> {
+    // 解析 JSON
+    let mut data: serde_json::Value = serde_json::from_str(save_json)
+        .map_err(|e| JsValue::from_str(&format!("JSON解析错误: {}", e)))?;
+    
+    // 获取旧版本号
+    let old_version = data.get("version")
+        .and_then(|v| v.as_str())
+        .unwrap_or("1.0.0")
+        .to_string();
+    
+    // 解析旧版本
+    let parts: Vec<&str> = old_version.split('.').collect();
+    let old_ver = if parts.len() >= 3 {
+        GcSaveVersion::new(
+            parts[0].parse().unwrap_or(1),
+            parts[1].parse().unwrap_or(0),
+            parts[2].parse().unwrap_or(0),
+        )
+    } else {
+        GcSaveVersion::new(1, 0, 0)
+    };
+    
+    let current = GC_SAVE_VERSION;
+    
+    // 检查是否需要重置
+    if old_ver.needs_reset(&current) {
+        return Err(JsValue::from_str(&format!(
+            "存档版本({})与当前版本({})不兼容，需要重置",
+            old_ver, current
+        )));
+    }
+    
+    // 更新版本号
+    if let Some(obj) = data.as_object_mut() {
+        obj.insert("version".to_string(), serde_json::Value::String(current.to_string()));
+    }
+    
+    // 返回迁移后的 JSON
+    serde_json::to_string(&data)
+        .map_err(|e| JsValue::from_str(&format!("JSON序列化错误: {}", e)))
+}

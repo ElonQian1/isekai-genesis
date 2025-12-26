@@ -7,7 +7,7 @@
 //! 提供预定义的装备模板，用于生成游戏中的物品。
 
 use crate::{
-    GcEquipment, GcEquipmentSlot, GcRarity, GcStatType, GcProfessionType
+    GcEquipment, GcEquipmentSlot, GcRarity, GcProfessionType
 };
 
 /// 装备模板生成器

@@ -14,6 +14,7 @@
 import { Scene, Vector3 } from '@babylonjs/core';
 import { ClBattleScene } from '../render/cl_battle_scene';
 import { ClBattleScene as ClBattleScene3D } from '../render/battle/cl_battle_scene';
+import { ClBattleArenaScene, TerrainType } from '../render/battle';
 import { ClCardRenderer } from '../render/cl_card_renderer';
 import { ClBattleUI } from '../ui/cl_battle_ui';
 import { ClBattleController, cl_getBattleController, ClBattlePhase } from '../cl_battle_controller';
@@ -22,6 +23,7 @@ import { ClMessageUI } from '../ui/cl_message_ui';
 import { ClBattleState } from '../cl_battle_manager';
 import { AdvancedDynamicTexture } from '@babylonjs/gui';
 import { EnemyData, EnemyType } from '../render/world/entities/cl_enemy_system';
+import { cl_generateBattleTerrain } from '../cl_wasm';
 
 // =============================================================================
 // 战斗场景控制器
@@ -60,10 +62,14 @@ export class ClBattleSceneController {
     // 战斗组件
     private battleScene: ClBattleScene | null = null;
     private battleScene3D: ClBattleScene3D | null = null;  // 3D 战斗场景（带部署格子）
+    private battleArenaScene: ClBattleArenaScene | null = null;  // 新版沙盘场景
     private cardRenderer: ClCardRenderer | null = null;
     private battleUI: ClBattleUI | null = null;
     private battleController: ClBattleController | null = null;
     private targetSelector: ClTargetSelector | null = null;
+    
+    // 是否使用新版沙盘
+    private useArenaMode: boolean = true;
     
     // 玩家信息
     private localPlayerId: string = '';
@@ -97,6 +103,12 @@ export class ClBattleSceneController {
         // 创建 3D 战斗场景（带部署格子）
         this.battleScene3D = new ClBattleScene3D(this.scene);
         this.battleScene3D.onBattleEnd = (victory) => {
+            this.handleBattleEnd(victory);
+        };
+        
+        // 创建新版沙盘场景
+        this.battleArenaScene = new ClBattleArenaScene(this.scene);
+        this.battleArenaScene.onBattleEnd = (victory) => {
             this.handleBattleEnd(victory);
         };
         
@@ -141,6 +153,14 @@ export class ClBattleSceneController {
             this.battleScene3D.onBattleEnd = originalCallback;
         }
         
+        // 清理新版沙盘
+        if (this.battleArenaScene) {
+            const originalCallback = this.battleArenaScene.onBattleEnd;
+            this.battleArenaScene.onBattleEnd = null;
+            this.battleArenaScene.end(false);
+            this.battleArenaScene.onBattleEnd = originalCallback;
+        }
+        
         this.battleUI?.dispose();
         this.battleUI = null;
     }
@@ -148,24 +168,50 @@ export class ClBattleSceneController {
     /**
      * 开始与AI战斗
      */
-    startBattleWithAI(aiName: string): boolean {
+    startBattleWithAI(aiName: string, worldTerrain: string = 'plain'): boolean {
         this.currentEnemyName = aiName;
         
-        // 创建敌人数据
-        const enemyData: EnemyData = {
-            id: `enemy_${Date.now()}`,
-            name: aiName,
-            type: EnemyType.NORMAL,
-            level: 1,
-            position: Vector3.Zero(),
-            patrolRadius: 0,
-        };
-        
-        // 获取战斗位置（使用固定位置，因为大世界已经隐藏）
+        // 获取战斗位置
         const battlePos = new Vector3(0, 0, 0);
         
-        // 启动 3D 战斗场景
-        this.battleScene3D?.startBattle(enemyData, battlePos);
+        if (this.useArenaMode) {
+            // 🌟 使用 WASM 动态生成战斗地形
+            const seed = Date.now();
+            const terrainResult = cl_generateBattleTerrain(worldTerrain, aiName, seed);
+            
+            let playerTerrain: TerrainType = 'plain';
+            let enemyTerrain: TerrainType = 'plain';
+            
+            if (terrainResult) {
+                // 使用 WASM 生成的地形
+                playerTerrain = terrainResult.player_terrain as TerrainType;
+                enemyTerrain = terrainResult.enemy_terrain as TerrainType;
+                console.log(`🎮 WASM地形生成: 玩家=${playerTerrain}, 敌方=${enemyTerrain}`);
+            } else {
+                // WASM 未初始化时的备用方案
+                const terrains: TerrainType[] = ['plain', 'volcano', 'glacier', 'ocean', 'forest'];
+                const randomTerrain = () => terrains[Math.floor(Math.random() * terrains.length)];
+                playerTerrain = randomTerrain();
+                enemyTerrain = randomTerrain();
+                console.warn('⚠️ WASM未初始化，使用随机地形');
+            }
+            
+            this.battleArenaScene?.start({
+                playerTerrain,
+                enemyTerrain
+            }, battlePos);
+        } else {
+            // 使用旧版战斗场景
+            const enemyData: EnemyData = {
+                id: `enemy_${Date.now()}`,
+                name: aiName,
+                type: EnemyType.NORMAL,
+                level: 1,
+                position: Vector3.Zero(),
+                patrolRadius: 0,
+            };
+            this.battleScene3D?.startBattle(enemyData, battlePos);
+        }
         
         return true;
     }

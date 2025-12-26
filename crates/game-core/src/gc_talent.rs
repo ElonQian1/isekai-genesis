@@ -596,7 +596,7 @@ mod tests {
     
     #[test]
     fn test_gc_talent_tree() {
-        let mut tree = GcTalentTree::gc_new("tree_warrior", "战士天赋", Some(GcProfessionType::Warrior));
+        let mut tree = GcTalentTree::gc_new("tree_knight", "骑士天赋", Some(GcProfessionType::Knight));
         
         tree.gc_add_node(create_test_talent());
         
@@ -613,18 +613,18 @@ mod tests {
         let mut talents = GcPlayerTalents::gc_new("player_1");
         talents.gc_add_points(10);
         
-        let mut tree = GcTalentTree::gc_new("tree_warrior", "战士天赋", Some(GcProfessionType::Warrior));
+        let mut tree = GcTalentTree::gc_new("tree_knight", "骑士天赋", Some(GcProfessionType::Knight));
         tree.gc_add_node(create_test_talent());
         talents.gc_add_tree(tree);
         
         // 升级天赋
-        talents.gc_upgrade_talent("tree_warrior", "talent_str_1", 1).unwrap();
+        talents.gc_upgrade_talent("tree_knight", "talent_str_1", 1).unwrap();
         
         assert_eq!(talents.available_points, 9);
         assert_eq!(talents.spent_points, 1);
         
         // 应用效果
-        let mut stats = GcBaseStats::gc_new();
+        let mut stats = GcBaseStats::default();
         talents.gc_apply_to_base_stats(&mut stats);
         assert_eq!(stats.strength, 2);
     }
@@ -634,13 +634,13 @@ mod tests {
         let mut talents = GcPlayerTalents::gc_new("player_1");
         talents.gc_add_points(10);
         
-        let mut tree = GcTalentTree::gc_new("tree_warrior", "战士天赋", Some(GcProfessionType::Warrior));
+        let mut tree = GcTalentTree::gc_new("tree_knight", "骑士天赋", Some(GcProfessionType::Knight));
         tree.gc_add_node(create_test_talent());
         talents.gc_add_tree(tree);
         
         // 升满天赋
         for _ in 0..3 {
-            talents.gc_upgrade_talent("tree_warrior", "talent_str_1", 1).unwrap();
+            talents.gc_upgrade_talent("tree_knight", "talent_str_1", 1).unwrap();
         }
         assert_eq!(talents.available_points, 7);
         

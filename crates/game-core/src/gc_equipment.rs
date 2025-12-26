@@ -244,17 +244,17 @@ mod tests {
         );
         
         sword = sword.gc_with_level(10)
-                     .gc_with_profession(GcProfessionType::Warrior);
+                     .gc_with_profession(GcProfessionType::Knight);
         
         // 满足条件
-        assert!(sword.gc_can_equip(10, GcProfessionType::Warrior).is_ok());
-        assert!(sword.gc_can_equip(15, GcProfessionType::Warrior).is_ok());
+        assert!(sword.gc_can_equip(10, GcProfessionType::Knight).is_ok());
+        assert!(sword.gc_can_equip(15, GcProfessionType::Knight).is_ok());
         
         // 等级不足
-        assert!(sword.gc_can_equip(5, GcProfessionType::Warrior).is_err());
+        assert!(sword.gc_can_equip(5, GcProfessionType::Knight).is_err());
         
         // 职业不符
-        assert!(sword.gc_can_equip(10, GcProfessionType::Mage).is_err());
+        assert!(sword.gc_can_equip(10, GcProfessionType::Warlock).is_err());
     }
     
     #[test]

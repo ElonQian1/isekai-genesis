@@ -10,6 +10,7 @@
  */
 
 import { ClGameMode } from './cl_game_mode_types';
+import { cl_migrateSave } from '../cl_wasm';
 
 // =============================================================================
 // 玩家进度数据
@@ -516,6 +517,7 @@ export class ClPlayerProgressManager {
 
     /**
      * 从 localStorage 加载
+     * 自动使用 WASM 迁移存档版本
      */
     loadFromStorage(playerId: string): ClPlayerProgress | null {
         const key = `${this.storageKey}_${playerId}`;
@@ -523,7 +525,23 @@ export class ClPlayerProgressManager {
         try {
             const data = localStorage.getItem(key);
             if (data) {
-                return JSON.parse(data) as ClPlayerProgress;
+                // 🌟 使用 WASM 迁移存档版本
+                const migrationResult = cl_migrateSave(data);
+                
+                if (migrationResult.success && migrationResult.data) {
+                    // 迁移成功，保存迁移后的数据
+                    localStorage.setItem(key, migrationResult.data);
+                    console.log('✅ 存档已迁移到最新版本');
+                    return JSON.parse(migrationResult.data) as ClPlayerProgress;
+                } else if (migrationResult.error?.includes('不兼容')) {
+                    // 版本不兼容，需要重置
+                    console.warn('⚠️ 存档版本不兼容，需要重置:', migrationResult.error);
+                    localStorage.removeItem(key);
+                    return null;
+                } else {
+                    // 其他情况（如 WASM 未初始化），直接使用原数据
+                    return JSON.parse(data) as ClPlayerProgress;
+                }
             }
         } catch (e) {
             console.warn('⚠️ 加载进度失败:', e);
