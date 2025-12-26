@@ -39,6 +39,15 @@ export const CL_HAND_CONFIG = {
     
     // 最大手牌
     MAX_HAND_SIZE: 10,
+    
+    // 有效目标区域 (怪兽区)
+    DROP_ZONE: {
+        MIN_X: -6,              // 左边界
+        MAX_X: 6,               // 右边界
+        MIN_Z: -3,              // 前边界
+        MAX_Z: 3,               // 后边界
+        Y: 0,                   // Y 高度
+    }
 };
 
 // =============================================================================
@@ -255,21 +264,74 @@ export class ClHandManager {
         
         if (clickedCard) {
             this.selectedCard = clickedCard;
+            this.isDragging = true;
             this.onCardSelect?.(clickedCard);
         }
     }
 
     /**
-     * 处理释放
+     * 处理释放 - 检测有效放置目标
      */
     private handlePointerUp(): void {
-        if (this.selectedCard) {
-            // TODO: 检测是否拖到了有效目标
-            // 暂时打出到场地中央
-            this.playCard(this.selectedCard, new Vector3(0, 1, 0));
+        if (this.selectedCard && this.isDragging) {
+            // 获取当前拖拽位置
+            const dropPosition = this.getDropPosition();
+            
+            if (dropPosition && this.isValidDropZone(dropPosition)) {
+                // 在有效区域内，打出卡牌
+                this.playCard(this.selectedCard, dropPosition);
+            } else {
+                // 不在有效区域，返回原位
+                this.returnCardToHand(this.selectedCard);
+            }
+            
             this.selectedCard = null;
+            this.isDragging = false;
         }
     }
+
+    /**
+     * 获取当前拖拽释放位置
+     */
+    private getDropPosition(): Vector3 | null {
+        // 从场景获取当前指针射线与地面的交点
+        const pickInfo = this.scene.pick(
+            this.scene.pointerX,
+            this.scene.pointerY,
+            (mesh) => mesh.name === 'ground' || mesh.name.includes('slot')
+        );
+        
+        if (pickInfo?.hit && pickInfo.pickedPoint) {
+            return pickInfo.pickedPoint;
+        }
+        
+        // 如果没有命中地面，使用默认位置
+        return new Vector3(0, CL_HAND_CONFIG.DROP_ZONE.Y, 0);
+    }
+
+    /**
+     * 检测是否为有效放置区域
+     */
+    private isValidDropZone(position: Vector3): boolean {
+        const zone = CL_HAND_CONFIG.DROP_ZONE;
+        return (
+            position.x >= zone.MIN_X && position.x <= zone.MAX_X &&
+            position.z >= zone.MIN_Z && position.z <= zone.MAX_Z
+        );
+    }
+
+    /**
+     * 将卡牌返回手牌原位
+     */
+    private returnCardToHand(card: ClHandCard): void {
+        // 平滑返回原位
+        card.mesh.position = card.originalPosition.clone();
+        card.mesh.rotation = card.originalRotation.clone();
+        card.mesh.scaling.setAll(1);
+    }
+
+    // 拖拽状态
+    private isDragging: boolean = false;
 
     /**
      * 打出卡牌

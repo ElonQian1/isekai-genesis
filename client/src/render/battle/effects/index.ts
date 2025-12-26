@@ -42,6 +42,12 @@ export { ClVisualEffectManager, CL_VISUAL_EFFECT_CONFIG } from './cl_visual_effe
 export { ClCombatEffectManager, CL_COMBAT_EFFECT_CONFIG } from './cl_combat_effects';
 
 // =============================================================================
+// 合成升星特效 (3合1、星级提升、金色光环)
+// =============================================================================
+export { ClMergeEffectManager, CL_MERGE_EFFECT_CONFIG } from './cl_merge_effects';
+export type { ClMergeAnimationOptions } from './cl_merge_effects';
+
+// =============================================================================
 // 环境特效 (环境粒子、背景)
 // =============================================================================
 export { ClAmbientEffectManager, CL_AMBIENT_EFFECT_CONFIG } from './cl_ambient_effects';
@@ -76,3 +82,13 @@ export { ClSkillEffectFactory, SkillEffectType, SKILL_EFFECT_CONFIG } from './cl
 
 // UI 特效
 export { ClBattleUIEffects, UI_EFFECT_CONFIG } from './cl_battle_ui_effects';
+
+// =============================================================================
+// 音效管理
+// =============================================================================
+export { 
+    ClBattleSoundManager, 
+    CL_BATTLE_SOUND_CONFIG, 
+    getGlobalSoundManager 
+} from './cl_battle_sounds';
+export type { ClBattleSoundType } from './cl_battle_sounds';

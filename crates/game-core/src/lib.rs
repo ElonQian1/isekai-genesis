@@ -51,6 +51,7 @@ mod gc_merge;
 mod gc_graveyard;
 mod gc_tavern_shop;
 mod gc_season;
+mod gc_card_acquisition;
 
 // 公开导出
 pub use gc_types::*;
@@ -88,4 +89,5 @@ pub use gc_merge::*;
 pub use gc_graveyard::*;
 pub use gc_tavern_shop::*;
 pub use gc_season::*;
+pub use gc_card_acquisition::*;
 

@@ -20,9 +20,10 @@ import {
     ShadowGenerator,
     GlowLayer,
     ParticleSystem,
+    Observable,
 } from '@babylonjs/core';
 
-import { ClHandManager } from './cl_hand_manager';
+import { ClHandManager, ClHandCard } from './cl_hand_manager';
 
 // =============================================================================
 // 战斗场景配置
@@ -66,6 +67,17 @@ export enum ClBattleZone {
 }
 
 // =============================================================================
+// 卡牌打出事件
+// =============================================================================
+
+export interface ClCardPlayEvent {
+    cardId: string;
+    cardName: string;
+    targetPosition: Vector3;
+    targetZone: ClBattleZone;
+}
+
+// =============================================================================
 // 战斗场景管理器
 // =============================================================================
 
@@ -93,9 +105,19 @@ export class ClBattleScene {
     
     // 粒子效果
     private ambientParticles: ParticleSystem | null = null;
+    
+    // 事件通知 - 用于与游戏逻辑层通信
+    public onCardPlayed: Observable<ClCardPlayEvent>;
+    public onTurnEndRequested: Observable<void>;
+    public onCardDrawRequested: Observable<number>;
 
     constructor(scene: Scene) {
         this.scene = scene;
+        
+        // 初始化事件
+        this.onCardPlayed = new Observable();
+        this.onTurnEndRequested = new Observable();
+        this.onCardDrawRequested = new Observable();
         
         // 创建场景根节点
         this.sceneRoot = new TransformNode('battleSceneRoot', scene);
@@ -264,11 +286,59 @@ export class ClBattleScene {
     private setupHandManagers(): void {
         this.playerHand = new ClHandManager(this.scene);
         
-        // 设置回调
+        // 设置回调 - 当卡牌打出时通知游戏逻辑
         this.playerHand.onCardPlay = (card, target) => {
-            console.log(`打出卡牌: ${card.id} 到 (${target.x}, ${target.y}, ${target.z})`);
-            // TODO: 通知游戏逻辑
+            console.log(`🃏 打出卡牌: ${card.id} 到 (${target.x.toFixed(2)}, ${target.y.toFixed(2)}, ${target.z.toFixed(2)})`);
+            
+            // 判断目标区域
+            const targetZone = this.determineTargetZone(target);
+            
+            // 通知游戏逻辑层
+            this.onCardPlayed.notifyObservers({
+                cardId: card.id,
+                cardName: card.id, // 使用 id 作为名称，真实名称应该从卡牌数据获取
+                targetPosition: target.clone(),
+                targetZone: targetZone
+            });
         };
+    }
+
+    /**
+     * 根据位置判断目标区域
+     */
+    private determineTargetZone(position: Vector3): ClBattleZone {
+        const config = CL_BATTLE_CONFIG;
+        
+        // 判断是玩家区域还是对手区域
+        if (position.z < 0) {
+            // 玩家侧
+            if (position.z < config.PLAYER_Z - 2) {
+                return ClBattleZone.PlayerHand;
+            }
+            return ClBattleZone.PlayerField;
+        } else {
+            // 对手侧
+            if (position.z > config.OPPONENT_Z - 2) {
+                return ClBattleZone.OpponentField;
+            }
+            return ClBattleZone.OpponentField;
+        }
+    }
+
+    /**
+     * 请求结束回合
+     */
+    public requestEndTurn(): void {
+        console.log('📢 请求结束回合');
+        this.onTurnEndRequested.notifyObservers();
+    }
+
+    /**
+     * 请求抽牌
+     */
+    public requestDrawCard(count: number = 1): void {
+        console.log(`📢 请求抽 ${count} 张牌`);
+        this.onCardDrawRequested.notifyObservers(count);
     }
 
     /**

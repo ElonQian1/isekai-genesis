@@ -16,6 +16,26 @@ import init, {
     gw_migrate_save,
     gw_validate_normal_summon,
     gw_validate_tribute_summon,
+    // 酒馆模式
+    gw_get_board_slots,
+    gw_get_refresh_cost,
+    gw_get_xp_cost,
+    gw_get_shop_info,
+    gw_refresh_shop,
+    gw_toggle_freeze,
+    gw_buy_monster,
+    gw_sell_monster,
+    gw_buy_xp,
+    gw_collect_income,
+    gw_get_economy_info,
+    gw_find_mergeable,
+    gw_auto_merge_once,
+    gw_auto_merge_all,
+    gw_deploy_from_bench,
+    gw_recall_to_bench,
+    gw_swap_positions,
+    gw_game_mode_name,
+    gw_tavern_phase_name,
     GwPlayer,
     GwCard,
     GwBattle,
@@ -143,6 +163,56 @@ export interface ClWasmDamageResult {
     base_damage: number;
     defense_reduction: number;
     final_damage: number;
+}
+
+// =============================================================================
+// 酒馆模式类型定义
+// =============================================================================
+
+/** 经济信息 */
+export interface ClTavernEconomy {
+    gold: number;
+    level: number;
+    xp: number;
+    xp_to_next: number;
+    win_streak: number;
+    lose_streak: number;
+}
+
+/** 酒馆怪兽 */
+export interface ClTavernMonster {
+    id: string;
+    name: string;
+    template_id: string;
+    star: number;
+    golden_level: number;
+    atk: number;
+    def: number;
+    hp: number;
+    buy_price: number;
+    sell_price: number;
+}
+
+/** 商店槽位 */
+export interface ClTavernShopSlot {
+    index: number;
+    monster: ClTavernMonster | null;
+    frozen: boolean;
+}
+
+/** 可合并组 */
+export interface ClMergeableGroup {
+    template_id: string;
+    star: number;
+    golden_level: number;
+    monster_indices: Array<{ location: number; index: number }>;
+}
+
+/** 操作结果 */
+export interface ClOperationResult {
+    success: boolean;
+    error?: string;
+    data?: string;
 }
 
 // =============================================================================
@@ -584,4 +654,266 @@ export function cl_validateTributeSummon(
         console.error('祭品召唤验证失败:', e);
         return { valid: false, error: '验证失败' };
     }
+}
+
+// =============================================================================
+// 酒馆模式 - 常量
+// =============================================================================
+
+/** 获取棋盘槽位数 */
+export function cl_getBoardSlots(level: number): number {
+    if (!wasmInitialized) {
+        // 兜底: Lv1-2=3, Lv3-4=4, Lv5+=5
+        if (level <= 2) return 3;
+        if (level <= 4) return 4;
+        return 5;
+    }
+    return gw_get_board_slots(level);
+}
+
+/** 获取刷新商店费用 */
+export function cl_getRefreshCost(): number {
+    if (!wasmInitialized) return 2;
+    return gw_get_refresh_cost();
+}
+
+/** 获取购买经验费用 */
+export function cl_getXpCost(): number {
+    if (!wasmInitialized) return 4;
+    return gw_get_xp_cost();
+}
+
+// =============================================================================
+// 酒馆模式 - 商店操作
+// =============================================================================
+
+/** 获取商店信息 */
+export function cl_getShopInfo(shopJson: string): ClTavernShopSlot[] {
+    if (!wasmInitialized) return [];
+    try {
+        return gw_get_shop_info(shopJson) as ClTavernShopSlot[];
+    } catch (e) {
+        console.error('获取商店信息失败:', e);
+        return [];
+    }
+}
+
+/** 刷新商店 */
+export function cl_refreshShop(
+    economyJson: string,
+    shopJson: string,
+    poolJson: string,
+    randomRolls: number[]
+): ClOperationResult {
+    if (!wasmInitialized) {
+        return { success: false, error: 'WASM 未初始化' };
+    }
+    try {
+        return gw_refresh_shop(economyJson, shopJson, poolJson, JSON.stringify(randomRolls)) as ClOperationResult;
+    } catch (e) {
+        console.error('刷新商店失败:', e);
+        return { success: false, error: String(e) };
+    }
+}
+
+/** 冻结/解冻槽位 */
+export function cl_toggleFreeze(shopJson: string, slotIndex: number): ClOperationResult {
+    if (!wasmInitialized) {
+        return { success: false, error: 'WASM 未初始化' };
+    }
+    try {
+        return gw_toggle_freeze(shopJson, slotIndex) as ClOperationResult;
+    } catch (e) {
+        console.error('冻结槽位失败:', e);
+        return { success: false, error: String(e) };
+    }
+}
+
+// =============================================================================
+// 酒馆模式 - 交易
+// =============================================================================
+
+/** 购买怪兽 */
+export function cl_buyMonster(
+    economyJson: string,
+    shopJson: string,
+    slotIndex: number
+): ClOperationResult {
+    if (!wasmInitialized) {
+        return { success: false, error: 'WASM 未初始化' };
+    }
+    try {
+        return gw_buy_monster(economyJson, shopJson, slotIndex) as ClOperationResult;
+    } catch (e) {
+        console.error('购买怪兽失败:', e);
+        return { success: false, error: String(e) };
+    }
+}
+
+/** 出售怪兽 */
+export function cl_sellMonster(economyJson: string, monsterJson: string): ClOperationResult {
+    if (!wasmInitialized) {
+        return { success: false, error: 'WASM 未初始化' };
+    }
+    try {
+        return gw_sell_monster(economyJson, monsterJson) as ClOperationResult;
+    } catch (e) {
+        console.error('出售怪兽失败:', e);
+        return { success: false, error: String(e) };
+    }
+}
+
+// =============================================================================
+// 酒馆模式 - 经济
+// =============================================================================
+
+/** 购买经验 */
+export function cl_buyXp(economyJson: string): ClOperationResult {
+    if (!wasmInitialized) {
+        return { success: false, error: 'WASM 未初始化' };
+    }
+    try {
+        return gw_buy_xp(economyJson) as ClOperationResult;
+    } catch (e) {
+        console.error('购买经验失败:', e);
+        return { success: false, error: String(e) };
+    }
+}
+
+/** 收取回合收入 */
+export function cl_collectIncome(economyJson: string): ClOperationResult {
+    if (!wasmInitialized) {
+        return { success: false, error: 'WASM 未初始化' };
+    }
+    try {
+        return gw_collect_income(economyJson) as ClOperationResult;
+    } catch (e) {
+        console.error('收取收入失败:', e);
+        return { success: false, error: String(e) };
+    }
+}
+
+/** 获取经济信息 */
+export function cl_getEconomyInfo(economyJson: string): ClTavernEconomy | null {
+    if (!wasmInitialized) return null;
+    try {
+        return gw_get_economy_info(economyJson) as ClTavernEconomy;
+    } catch (e) {
+        console.error('获取经济信息失败:', e);
+        return null;
+    }
+}
+
+// =============================================================================
+// 酒馆模式 - 合并
+// =============================================================================
+
+/** 查找可合并组 */
+export function cl_findMergeable(boardJson: string, benchJson: string): ClMergeableGroup[] {
+    if (!wasmInitialized) return [];
+    try {
+        return gw_find_mergeable(boardJson, benchJson) as ClMergeableGroup[];
+    } catch (e) {
+        console.error('查找可合并组失败:', e);
+        return [];
+    }
+}
+
+/** 自动合并一次 */
+export function cl_autoMergeOnce(boardJson: string, benchJson: string): ClOperationResult {
+    if (!wasmInitialized) {
+        return { success: false, error: 'WASM 未初始化' };
+    }
+    try {
+        return gw_auto_merge_once(boardJson, benchJson) as ClOperationResult;
+    } catch (e) {
+        console.error('自动合并失败:', e);
+        return { success: false, error: String(e) };
+    }
+}
+
+/** 全部自动合并 */
+export function cl_autoMergeAll(boardJson: string, benchJson: string): ClOperationResult {
+    if (!wasmInitialized) {
+        return { success: false, error: 'WASM 未初始化' };
+    }
+    try {
+        return gw_auto_merge_all(boardJson, benchJson) as ClOperationResult;
+    } catch (e) {
+        console.error('全部自动合并失败:', e);
+        return { success: false, error: String(e) };
+    }
+}
+
+// =============================================================================
+// 酒馆模式 - 部署
+// =============================================================================
+
+/** 从手牌区部署到战场 */
+export function cl_deployFromBench(
+    arenaJson: string,
+    benchJson: string,
+    monsterId: string,
+    slot: number
+): ClOperationResult {
+    if (!wasmInitialized) {
+        return { success: false, error: 'WASM 未初始化' };
+    }
+    try {
+        return gw_deploy_from_bench(arenaJson, benchJson, monsterId, slot) as ClOperationResult;
+    } catch (e) {
+        console.error('部署怪兽失败:', e);
+        return { success: false, error: String(e) };
+    }
+}
+
+/** 从战场召回到手牌区 */
+export function cl_recallToBench(
+    arenaJson: string,
+    benchJson: string,
+    slot: number
+): ClOperationResult {
+    if (!wasmInitialized) {
+        return { success: false, error: 'WASM 未初始化' };
+    }
+    try {
+        return gw_recall_to_bench(arenaJson, benchJson, slot) as ClOperationResult;
+    } catch (e) {
+        console.error('召回怪兽失败:', e);
+        return { success: false, error: String(e) };
+    }
+}
+
+/** 战场内换位 */
+export function cl_swapPositions(arenaJson: string, slotA: number, slotB: number): ClOperationResult {
+    if (!wasmInitialized) {
+        return { success: false, error: 'WASM 未初始化' };
+    }
+    try {
+        return gw_swap_positions(arenaJson, slotA, slotB) as ClOperationResult;
+    } catch (e) {
+        console.error('换位失败:', e);
+        return { success: false, error: String(e) };
+    }
+}
+
+// =============================================================================
+// 酒馆模式 - 模式信息
+// =============================================================================
+
+/** 获取游戏模式名称 */
+export function cl_getGameModeName(mode: number): string {
+    if (!wasmInitialized) {
+        return mode === 0 ? 'yugioh' : mode === 1 ? 'tavern' : 'unknown';
+    }
+    return gw_game_mode_name(mode);
+}
+
+/** 获取酒馆阶段名称 */
+export function cl_getTavernPhaseName(phase: number): string {
+    if (!wasmInitialized) {
+        const phases = ['shopping', 'deploy', 'combat', 'result'];
+        return phases[phase] ?? 'unknown';
+    }
+    return gw_tavern_phase_name(phase);
 }

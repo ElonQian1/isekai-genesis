@@ -31,6 +31,8 @@ export interface AIConfig {
     idleTime: number;           // 巡逻间歇停留时间
     patrolType?: 'random' | 'waypoint'; // 巡逻类型
     nextWaypointId?: string;    // 下一个路径点 ID
+    attackCooldown?: number;    // 攻击冷却时间 (秒)
+    attackDamage?: number;      // 攻击伤害
 }
 
 export class ClEnemyAI {
@@ -40,9 +42,13 @@ export class ClEnemyAI {
     
     private targetPoint: Vector3 | null = null;
     private stateTimer: number = 0;
+    private attackCooldownTimer: number = 0;  // 攻击冷却计时器
     private config: AIConfig;
     private waypointSystem: ClWaypointSystem | null = null;
     private getTerrainHeight: ((x: number, z: number) => number) | null = null;
+    
+    // 攻击回调
+    public onAttack: ((damage: number, targetPos: Vector3) => void) | null = null;
 
     constructor(root: TransformNode, config?: Partial<AIConfig>, waypointSystem: ClWaypointSystem | null = null) {
         this.root = root;
@@ -59,6 +65,8 @@ export class ClEnemyAI {
             leashRadius: 15.0,
             idleTime: 2.0,
             patrolType: 'random',
+            attackCooldown: 1.5,    // 1.5秒攻击冷却
+            attackDamage: 10,       // 默认伤害
             ...config
         };
     }
@@ -227,7 +235,7 @@ export class ClEnemyAI {
         this.moveTo(playerPos, this.config.chaseSpeed, dt);
     }
 
-    private updateAttack(_dt: number, playerPos: Vector3 | null): void {
+    private updateAttack(dt: number, playerPos: Vector3 | null): void {
         if (!playerPos) {
             this.transitionTo(EnemyState.RETURN);
             return;
@@ -244,8 +252,44 @@ export class ClEnemyAI {
         // 面向玩家
         this.lookAt(playerPos);
 
-        // TODO: 触发攻击动画或逻辑
-        // 这里可以加一个攻击冷却计时器
+        // 更新攻击冷却
+        if (this.attackCooldownTimer > 0) {
+            this.attackCooldownTimer -= dt;
+            return;
+        }
+        
+        // 执行攻击
+        this.performAttack(playerPos);
+        
+        // 重置冷却
+        this.attackCooldownTimer = this.config.attackCooldown || 1.5;
+    }
+    
+    /**
+     * 执行攻击
+     */
+    private performAttack(targetPos: Vector3): void {
+        const damage = this.config.attackDamage || 10;
+        
+        // 触发攻击回调
+        if (this.onAttack) {
+            this.onAttack(damage, targetPos);
+        }
+        
+        // 简单的攻击动画 - 向前冲刺
+        const originalPos = this.root.position.clone();
+        const direction = targetPos.subtract(originalPos).normalize();
+        const lungeDistance = 0.3;
+        
+        // 前冲
+        this.root.position.addInPlace(direction.scale(lungeDistance));
+        
+        // 延迟返回原位
+        setTimeout(() => {
+            this.root.position = originalPos;
+        }, 100);
+        
+        console.log(`⚔️ 敌人攻击! 造成 ${damage} 伤害`);
     }
 
     private updateReturn(dt: number): void {

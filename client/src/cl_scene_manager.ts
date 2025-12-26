@@ -21,6 +21,7 @@ import {
     ClNetworkBattleManager, 
     cl_getNetworkBattleManager 
 } from './network/cl_network_battle';
+import { ClLobbyService, cl_getLobbyService } from './network/cl_lobby_service';
 import { ClBattleState } from './cl_battle_manager';
 
 // 场景控制器
@@ -64,6 +65,7 @@ export class ClSceneManager {
     
     // 网络
     private networkManager: ClNetworkBattleManager | null = null;
+    private lobbyService: ClLobbyService | null = null;
     
     // 玩家信息
     private localPlayerId: string = '';
@@ -411,8 +413,43 @@ export class ClSceneManager {
             return;
         }
         
-        // TODO: 从服务器获取房间列表
-        this.lobbyUI?.updateRoomList([]);
+        // 使用大厅服务获取房间列表
+        if (!this.lobbyService) {
+            try {
+                this.lobbyService = cl_getLobbyService();
+                // 设置房间列表更新回调
+                this.lobbyService.setCallbacks({
+                    onRoomListUpdate: (rooms) => {
+                        const roomData: ClRoomData[] = rooms.map(r => ({
+                            id: r.id,
+                            name: r.name,
+                            playerCount: r.player_count,
+                            maxPlayers: r.max_players,
+                            status: r.status === 'waiting' ? 'waiting' : 'playing'
+                        }));
+                        this.lobbyUI?.updateRoomList(roomData);
+                    }
+                });
+            } catch (e) {
+                console.warn('大厅服务不可用:', e);
+                this.lobbyUI?.updateRoomList([]);
+                return;
+            }
+        }
+        
+        // 发送刷新请求
+        this.lobbyService.refreshRoomList();
+        
+        // 先显示缓存的列表
+        const cachedRooms = this.lobbyService.getRoomList();
+        const roomData: ClRoomData[] = cachedRooms.map(r => ({
+            id: r.id,
+            name: r.name,
+            playerCount: r.player_count,
+            maxPlayers: r.max_players,
+            status: r.status === 'waiting' ? 'waiting' : 'playing'
+        }));
+        this.lobbyUI?.updateRoomList(roomData);
     }
 
     /**

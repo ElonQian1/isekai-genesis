@@ -17,9 +17,12 @@ import {
     TextBlock,
     Control,
     Grid,
-    Button
+    Button,
+    StackPanel,
+    Image
 } from '@babylonjs/gui';
-import { ClInventorySystem, ClInventorySlot } from './cl_inventory_system';
+import { ClInventorySystem, ClInventorySlot, ClItemData } from './cl_inventory_system';
+import { Observable } from '@babylonjs/core';
 
 export class ClInventoryUI {
     private gui: AdvancedDynamicTexture;
@@ -30,13 +33,27 @@ export class ClInventoryUI {
     private grid: Grid | null = null;
     private slotControls: Map<number, Rectangle> = new Map();
     
+    // 物品详情面板
+    private detailPanel: Rectangle | null = null;
+    private detailTitle: TextBlock | null = null;
+    private detailDescription: TextBlock | null = null;
+    private detailType: TextBlock | null = null;
+    private selectedSlot: ClInventorySlot | null = null;
+    
+    // 事件
+    public onItemUsed: Observable<{ item: ClItemData; count: number }>;
+    public onItemDropped: Observable<{ item: ClItemData; count: number }>;
+    
     private isVisible: boolean = false;
 
     constructor(gui: AdvancedDynamicTexture, inventory: ClInventorySystem) {
         this.gui = gui;
         this.inventory = inventory;
+        this.onItemUsed = new Observable();
+        this.onItemDropped = new Observable();
         
         this.createUI();
+        this.createDetailPanel();
         this.bindEvents();
     }
 
@@ -105,6 +122,211 @@ export class ClInventoryUI {
     }
 
     /**
+     * 创建物品详情面板
+     */
+    private createDetailPanel(): void {
+        // 详情面板 (在背包右侧)
+        this.detailPanel = new Rectangle('detailPanel');
+        this.detailPanel.width = '180px';
+        this.detailPanel.height = '200px';
+        this.detailPanel.left = '300px';
+        this.detailPanel.background = '#1a1a2e';
+        this.detailPanel.color = '#4a90d9';
+        this.detailPanel.thickness = 2;
+        this.detailPanel.cornerRadius = 8;
+        this.detailPanel.isVisible = false;
+        this.detailPanel.shadowBlur = 10;
+        this.detailPanel.shadowColor = 'rgba(0,0,0,0.5)';
+        this.gui.addControl(this.detailPanel);
+
+        // 创建布局容器
+        const layout = new StackPanel();
+        layout.width = '100%';
+        layout.height = '100%';
+        layout.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
+        layout.paddingTop = '10px';
+        this.detailPanel.addControl(layout);
+
+        // 物品名称
+        this.detailTitle = new TextBlock('detailTitle', '');
+        this.detailTitle.height = '30px';
+        this.detailTitle.color = '#ffd700';
+        this.detailTitle.fontSize = 16;
+        this.detailTitle.fontWeight = 'bold';
+        this.detailTitle.textWrapping = true;
+        layout.addControl(this.detailTitle);
+
+        // 物品类型
+        this.detailType = new TextBlock('detailType', '');
+        this.detailType.height = '20px';
+        this.detailType.color = '#888888';
+        this.detailType.fontSize = 12;
+        layout.addControl(this.detailType);
+
+        // 分隔线
+        const divider = new Rectangle('divider');
+        divider.width = '90%';
+        divider.height = '2px';
+        divider.background = '#4a90d9';
+        divider.paddingTop = '5px';
+        divider.paddingBottom = '5px';
+        layout.addControl(divider);
+
+        // 物品描述
+        this.detailDescription = new TextBlock('detailDesc', '');
+        this.detailDescription.height = '60px';
+        this.detailDescription.color = '#cccccc';
+        this.detailDescription.fontSize = 11;
+        this.detailDescription.textWrapping = true;
+        this.detailDescription.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
+        this.detailDescription.paddingLeft = '10px';
+        this.detailDescription.paddingRight = '10px';
+        layout.addControl(this.detailDescription);
+
+        // 按钮容器
+        const buttonContainer = new StackPanel();
+        buttonContainer.height = '70px';
+        buttonContainer.isVertical = false;
+        buttonContainer.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
+        buttonContainer.paddingTop = '10px';
+        layout.addControl(buttonContainer);
+
+        // 使用按钮
+        const useBtn = Button.CreateSimpleButton('useBtn', '使用');
+        useBtn.width = '70px';
+        useBtn.height = '30px';
+        useBtn.color = 'white';
+        useBtn.background = '#2e7d32';
+        useBtn.cornerRadius = 5;
+        useBtn.paddingLeft = '5px';
+        useBtn.paddingRight = '5px';
+        useBtn.onPointerEnterObservable.add(() => {
+            useBtn.background = '#4caf50';
+        });
+        useBtn.onPointerOutObservable.add(() => {
+            useBtn.background = '#2e7d32';
+        });
+        useBtn.onPointerClickObservable.add(() => this.useSelectedItem());
+        buttonContainer.addControl(useBtn);
+
+        // 丢弃按钮
+        const dropBtn = Button.CreateSimpleButton('dropBtn', '丢弃');
+        dropBtn.width = '70px';
+        dropBtn.height = '30px';
+        dropBtn.color = 'white';
+        dropBtn.background = '#c62828';
+        dropBtn.cornerRadius = 5;
+        dropBtn.paddingLeft = '5px';
+        dropBtn.onPointerEnterObservable.add(() => {
+            dropBtn.background = '#ef5350';
+        });
+        dropBtn.onPointerOutObservable.add(() => {
+            dropBtn.background = '#c62828';
+        });
+        dropBtn.onPointerClickObservable.add(() => this.dropSelectedItem());
+        buttonContainer.addControl(dropBtn);
+    }
+
+    /**
+     * 显示物品详情
+     */
+    private showItemDetails(slot: ClInventorySlot): void {
+        if (!slot.item || !this.detailPanel) return;
+
+        this.selectedSlot = slot;
+        const item = slot.item;
+
+        // 更新详情内容
+        if (this.detailTitle) {
+            this.detailTitle.text = `${item.name} ${slot.count > 1 ? `x${slot.count}` : ''}`;
+        }
+        if (this.detailType) {
+            const typeNames: Record<string, string> = {
+                'consumable': '消耗品',
+                'material': '材料',
+                'equipment': '装备',
+                'quest': '任务物品'
+            };
+            this.detailType.text = `[${typeNames[item.type] || item.type}]`;
+        }
+        if (this.detailDescription) {
+            this.detailDescription.text = item.description || '没有描述';
+        }
+
+        // 显示面板
+        this.detailPanel.isVisible = true;
+    }
+
+    /**
+     * 隐藏物品详情
+     */
+    private hideItemDetails(): void {
+        if (this.detailPanel) {
+            this.detailPanel.isVisible = false;
+        }
+        this.selectedSlot = null;
+    }
+
+    /**
+     * 使用选中的物品
+     */
+    private useSelectedItem(): void {
+        if (!this.selectedSlot?.item) return;
+
+        const item = this.selectedSlot.item;
+        
+        // 只有消耗品可以使用
+        if (item.type !== 'consumable') {
+            console.log(`${item.name} 无法使用`);
+            return;
+        }
+
+        // 移除物品并触发事件
+        const removed = this.inventory.removeItem(item.id, 1);
+        if (removed) {
+            console.log(`使用了物品: ${item.name}`);
+            this.onItemUsed.notifyObservers({ item, count: 1 });
+            
+            // 如果物品用完了，隐藏详情
+            if (this.inventory.getItemCount(item.id) === 0) {
+                this.hideItemDetails();
+            } else {
+                // 更新显示
+                this.refreshSlots();
+            }
+        }
+    }
+
+    /**
+     * 丢弃选中的物品
+     */
+    private dropSelectedItem(): void {
+        if (!this.selectedSlot?.item) return;
+
+        const item = this.selectedSlot.item;
+        
+        // 任务物品不能丢弃
+        if (item.type === 'quest') {
+            console.log(`${item.name} 无法丢弃`);
+            return;
+        }
+
+        // 移除物品并触发事件
+        const removed = this.inventory.removeItem(item.id, 1);
+        if (removed) {
+            console.log(`丢弃了物品: ${item.name}`);
+            this.onItemDropped.notifyObservers({ item, count: 1 });
+            
+            // 如果物品丢完了，隐藏详情
+            if (this.inventory.getItemCount(item.id) === 0) {
+                this.hideItemDetails();
+            } else {
+                this.refreshSlots();
+            }
+        }
+    }
+
+    /**
      * 刷新所有格子
      */
     private refreshSlots(): void {
@@ -144,6 +366,18 @@ export class ClInventoryUI {
         container.paddingBottom = '5px';
         
         if (slot.item) {
+            // 悬停效果
+            container.onPointerEnterObservable.add(() => {
+                container.background = '#444444';
+                container.color = '#4a90d9';
+                container.thickness = 2;
+            });
+            container.onPointerOutObservable.add(() => {
+                container.background = '#333333';
+                container.color = '#555555';
+                container.thickness = 1;
+            });
+
             // 物品名称 (暂时代替图标)
             const text = new TextBlock();
             text.text = slot.item.name;
@@ -151,6 +385,15 @@ export class ClInventoryUI {
             text.fontSize = 12;
             text.textWrapping = true;
             container.addControl(text);
+            
+            // 根据物品类型设置颜色
+            const typeColors: Record<string, string> = {
+                'consumable': '#98fb98',  // 淡绿色
+                'material': '#b0c4de',     // 淡蓝色
+                'equipment': '#ffa500',    // 橙色
+                'quest': '#ff69b4'         // 粉色
+            };
+            text.color = typeColors[slot.item.type] || 'white';
             
             // 数量
             if (slot.count > 1) {
@@ -165,10 +408,9 @@ export class ClInventoryUI {
                 container.addControl(countText);
             }
             
-            // 点击事件
+            // 点击事件 - 显示物品详情
             container.onPointerClickObservable.add(() => {
-                console.log(`点击了物品: ${slot.item?.name}`);
-                // TODO: 显示物品详情或使用物品
+                this.showItemDetails(slot);
             });
         }
         
@@ -191,6 +433,11 @@ export class ClInventoryUI {
         if (!this.mainPanel) return;
         this.isVisible = !this.isVisible;
         this.mainPanel.isVisible = this.isVisible;
+        
+        // 隐藏时也隐藏详情面板
+        if (!this.isVisible) {
+            this.hideItemDetails();
+        }
     }
 
     /**
@@ -198,5 +445,8 @@ export class ClInventoryUI {
      */
     dispose(): void {
         this.mainPanel?.dispose();
+        this.detailPanel?.dispose();
+        this.onItemUsed.clear();
+        this.onItemDropped.clear();
     }
 }

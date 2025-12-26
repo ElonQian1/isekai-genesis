@@ -9,11 +9,17 @@
 //! - 购买价格: 1★=1金, 2★=2金, 3★+=3金
 //! - 可冻结槽位，保留到下回合
 //! - 每回合开始自动刷新（未冻结的槽位）
+//!
+//! ## 抽卡接口
+//! 实现 `GcCardAcquisition` trait，支持运行时动态切换抽卡方式
 
 use serde::{Deserialize, Serialize};
 use crate::{
     GcMonster, GcMonsterAttribute, GcEconomy, 
     gc_get_tier_weights, GcMonsterTier, GC_REFRESH_COST,
+    gc_card_acquisition::{
+        GcCardAcquisition, GcAcquisitionContext, GcAcquisitionSlot, GcAcquisitionResult
+    },
 };
 
 // =============================================================================
@@ -203,6 +209,165 @@ impl GcTavernShop {
         let available = self.slots.iter().filter(|s| s.is_some()).count();
         let frozen = self.frozen.iter().filter(|&&f| f).count();
         format!("商店 Lv.{} | 可购:{} | 冻结:{}", self.shop_level, available, frozen)
+    }
+}
+
+// =============================================================================
+// 实现 GcCardAcquisition trait
+// =============================================================================
+
+/// 酒馆商店适配器 (持有怪兽池引用用于刷新)
+/// 
+/// 由于 trait 需要独立工作，这个结构体包装了 GcTavernShop 并持有 GcMonsterPool
+#[derive(Clone, Debug)]
+pub struct GcTavernShopAdapter {
+    /// 酒馆商店
+    pub shop: GcTavernShop,
+    /// 怪兽池
+    pub pool: GcMonsterPool,
+}
+
+impl GcTavernShopAdapter {
+    /// 创建新的适配器
+    pub fn new(shop_level: u8) -> Self {
+        Self {
+            shop: GcTavernShop::with_level(shop_level),
+            pool: GcMonsterPool::with_defaults(),
+        }
+    }
+    
+    /// 从现有商店和池创建
+    pub fn from_parts(shop: GcTavernShop, pool: GcMonsterPool) -> Self {
+        Self { shop, pool }
+    }
+    
+    /// 生成随机数 (实际使用时应从上下文获取)
+    fn generate_rolls(&self, ctx: &GcAcquisitionContext) -> Vec<u8> {
+        if !ctx.random_rolls.is_empty() {
+            ctx.random_rolls.clone()
+        } else {
+            // 默认随机数 (生产环境应使用真随机)
+            (0..10).map(|i| ((i * 37 + 13) % 256) as u8).collect()
+        }
+    }
+}
+
+impl GcCardAcquisition for GcTavernShopAdapter {
+    type Item = GcMonster;
+    
+    fn acquire(&mut self, slot_index: usize, ctx: &mut GcAcquisitionContext) -> GcAcquisitionResult<Self::Item> {
+        // 检查槽位有效性
+        if slot_index >= GC_SHOP_SLOTS {
+            return GcAcquisitionResult::failure("无效槽位");
+        }
+        
+        // 检查槽位是否有怪兽
+        let monster = match self.shop.slots[slot_index].as_ref() {
+            Some(m) => m,
+            None => return GcAcquisitionResult::failure("该槽位没有怪兽"),
+        };
+        
+        // 获取价格
+        let price = monster.buy_price();
+        
+        // 检查金币
+        if !ctx.can_afford(price) {
+            return GcAcquisitionResult::failure("金币不足");
+        }
+        
+        // 扣除金币
+        ctx.spend(price);
+        
+        // 获取怪兽
+        let purchased = self.shop.slots[slot_index].take();
+        self.shop.frozen[slot_index] = false;
+        
+        match purchased {
+            Some(m) => GcAcquisitionResult::success(m, price),
+            None => GcAcquisitionResult::failure("购买失败"),
+        }
+    }
+    
+    fn can_acquire(&self, slot_index: usize, ctx: &GcAcquisitionContext) -> bool {
+        if slot_index >= GC_SHOP_SLOTS {
+            return false;
+        }
+        
+        match self.shop.slots[slot_index].as_ref() {
+            Some(monster) => ctx.can_afford(monster.buy_price()),
+            None => false,
+        }
+    }
+    
+    fn get_available_slots(&self) -> Vec<GcAcquisitionSlot> {
+        self.shop.slots.iter()
+            .enumerate()
+            .map(|(i, opt)| {
+                match opt {
+                    Some(monster) => {
+                        let star_str = if monster.golden_level > 0 {
+                            format!("{}★金Lv{}", monster.star, monster.golden_level)
+                        } else {
+                            format!("{}★", monster.star)
+                        };
+                        
+                        GcAcquisitionSlot::new(
+                            i,
+                            &monster.id,
+                            &monster.name,
+                            monster.buy_price(),
+                            monster.star,
+                        )
+                        .with_frozen(self.shop.frozen[i])
+                        .with_description(&star_str)
+                    },
+                    None => GcAcquisitionSlot::new(i, "", "空", 0, 0),
+                }
+            })
+            .collect()
+    }
+    
+    fn refresh(&mut self, ctx: &mut GcAcquisitionContext, free: bool) -> bool {
+        let cost = if free { 0 } else { GC_REFRESH_COST };
+        
+        if !free && !ctx.can_afford(cost) {
+            return false;
+        }
+        
+        if !free {
+            ctx.spend(cost);
+        }
+        
+        // 刷新商店
+        let rolls = self.generate_rolls(ctx);
+        self.shop.free_refresh(&self.pool, &rolls);
+        
+        // 更新商店等级
+        if ctx.player_level > 0 {
+            self.shop.update_level(ctx.player_level);
+        }
+        
+        true
+    }
+    
+    fn refresh_cost(&self) -> u32 {
+        GC_REFRESH_COST
+    }
+    
+    fn slot_count(&self) -> usize {
+        GC_SHOP_SLOTS
+    }
+    
+    fn toggle_freeze(&mut self, slot_index: usize) -> bool {
+        self.shop.toggle_freeze(slot_index)
+    }
+    
+    fn is_frozen(&self, slot_index: usize) -> bool {
+        self.shop.is_frozen(slot_index)
+    }
+    
+    fn mode_name(&self) -> &'static str {
+        "酒馆战棋模式"
     }
 }
 

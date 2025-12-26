@@ -15,6 +15,9 @@ export * from './cl_message_ui';
 export * from './cl_card_pool_ui';
 export * from './cl_battlefield_ui';
 export * from './cl_game_mode_ui';
+export * from './cl_tavern_shop_ui';
+export * from './cl_bench_ui';
+export * from './cl_tavern_arena_ui';
 
 // 战斗 UI 模块 (新模块化版本，单独导出避免冲突)
 export * as BattleUI from './battle';

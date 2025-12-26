@@ -11,7 +11,7 @@
  * 3. 调度各个子系统生成实体 (树木、建筑、怪物)
  */
 
-import { Scene, Vector3, AbstractMesh, Color3, Color4 } from '@babylonjs/core';
+import { Scene, Vector3, AbstractMesh, Color3, Color4, CubeTexture, HemisphericLight, DirectionalLight } from '@babylonjs/core';
 import { ClTreeSystem } from '../vegetation/cl_tree_system';
 import { ClStructureSystem } from '../structures/cl_structure_system';
 import { ClTerrainManager } from '../terrain/cl_terrain_manager';
@@ -392,9 +392,113 @@ export class ClLevelLoader {
             );
         }
         
-        // TODO: 设置天空盒、环境光等
-        // 注意：光照强度和方向需要通过 LightingSystem 设置，目前这里无法直接访问 LightingSystem
-        // 理想情况下，LevelLoader 应该持有 LightingSystem 的引用，或者通过事件总线广播设置变更
+        // 设置天空盒
+        if (settings.skybox) {
+            this.setupSkybox(settings.skybox);
+        }
+        
+        // 设置太阳光
+        if (settings.sunIntensity !== undefined || settings.sunDirection) {
+            this.setupSunLight(settings.sunIntensity, settings.sunDirection);
+        }
+        
+        // 设置环境光 (Hemispheric Light)
+        this.setupAmbientLight(settings.ambientColor);
+    }
+    
+    /**
+     * 设置天空盒
+     */
+    private setupSkybox(skyboxName: string): void {
+        // 检查是否已存在天空盒
+        const existingSkybox = this.scene.getMeshByName('skyBox');
+        if (existingSkybox) {
+            existingSkybox.dispose();
+        }
+        
+        try {
+            // 尝试加载天空盒纹理 (假设在 assets/skybox/ 目录下)
+            const skyboxPath = `/assets/skybox/${skyboxName}`;
+            
+            // 创建天空盒材质
+            const skyboxTexture = CubeTexture.CreateFromPrefilteredData(
+                `${skyboxPath}.env`,
+                this.scene
+            );
+            
+            this.scene.environmentTexture = skyboxTexture;
+            this.scene.createDefaultSkybox(skyboxTexture, true, 1000);
+            
+            console.log(`🌅 天空盒已加载: ${skyboxName}`);
+        } catch (error) {
+            console.warn(`⚠️ 无法加载天空盒 ${skyboxName}:`, error);
+            // 使用默认渐变天空
+            this.createGradientSky();
+        }
+    }
+    
+    /**
+     * 创建渐变天空 (备用方案)
+     */
+    private createGradientSky(): void {
+        // 设置简单的天空颜色
+        this.scene.clearColor = new Color4(0.5, 0.7, 1.0, 1.0);
+        console.log('🌤️ 使用默认渐变天空');
+    }
+    
+    /**
+     * 设置太阳光 (方向光)
+     */
+    private setupSunLight(intensity?: number, direction?: number[]): void {
+        // 查找或创建太阳光
+        let sunLight = this.scene.getLightByName('sunLight') as DirectionalLight | null;
+        
+        if (!sunLight) {
+            sunLight = new DirectionalLight(
+                'sunLight',
+                new Vector3(-1, -2, -1).normalize(),
+                this.scene
+            );
+        }
+        
+        // 设置强度
+        if (intensity !== undefined) {
+            sunLight.intensity = intensity;
+        }
+        
+        // 设置方向
+        if (direction && direction.length >= 3) {
+            sunLight.direction = new Vector3(direction[0], direction[1], direction[2]).normalize();
+        }
+        
+        console.log(`☀️ 太阳光设置完成: 强度=${sunLight.intensity}`);
+    }
+    
+    /**
+     * 设置环境光 (半球光)
+     */
+    private setupAmbientLight(ambientColor?: number[]): void {
+        // 查找或创建环境光
+        let ambientLight = this.scene.getLightByName('ambientLight') as HemisphericLight | null;
+        
+        if (!ambientLight) {
+            ambientLight = new HemisphericLight(
+                'ambientLight',
+                new Vector3(0, 1, 0),
+                this.scene
+            );
+            ambientLight.intensity = 0.5;
+        }
+        
+        // 设置颜色
+        if (ambientColor && ambientColor.length >= 3) {
+            ambientLight.diffuse = new Color3(ambientColor[0], ambientColor[1], ambientColor[2]);
+            ambientLight.groundColor = new Color3(
+                ambientColor[0] * 0.5,
+                ambientColor[1] * 0.5,
+                ambientColor[2] * 0.5
+            );
+        }
     }
 
     /**

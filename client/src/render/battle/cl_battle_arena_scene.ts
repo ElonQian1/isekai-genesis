@@ -23,7 +23,9 @@ import {
     Orientation,
     ClTributeSystem,
     TributeSummonTarget,
-    ClTerrainEffects
+    ClTerrainEffects,
+    ClBattleEffects,
+    ClBattleSoundManager
 } from './index';
 import { 
     cl_getTerrainModifier, 
@@ -314,6 +316,8 @@ export class ClBattleArenaScene {
     // 渲染器
     private arenaRenderer: ClBattleArenaRenderer;
     private terrainEffects: ClTerrainEffects | null = null;  // 🌟 地形粒子特效
+    private battleEffects: ClBattleEffects | null = null;     // ⚔️ 战斗特效 (攻击/伤害/治疗)
+    private soundManager: ClBattleSoundManager;               // 🔊 战斗音效管理器
     private playerMonsters: (ClMonsterMesh | null)[] = [null, null, null, null, null];
     private enemyMonsters: (ClMonsterMesh | null)[] = [null, null, null, null, null];
     
@@ -401,6 +405,8 @@ export class ClBattleArenaScene {
         
         this.arenaRenderer = new ClBattleArenaRenderer(scene, this.root);
         this.terrainEffects = new ClTerrainEffects(scene);  // 🌟 初始化地形粒子特效
+        this.battleEffects = new ClBattleEffects(scene, this.root);  // ⚔️ 初始化战斗特效
+        this.soundManager = new ClBattleSoundManager();  // 🔊 初始化战斗音效
         
         this.deviceType = detectDeviceType();
         this.orientation = detectOrientation();
@@ -547,6 +553,12 @@ export class ClBattleArenaScene {
         
         // 🌟 清理地形粒子特效
         this.terrainEffects?.dispose();
+        
+        // ⚔️ 清理战斗特效
+        this.battleEffects?.dispose();
+        
+        // 🔊 清理音效管理器
+        this.soundManager.dispose();
         
         // 清理陷阱卡网格
         this.trapMeshes.forEach(m => m?.dispose());
@@ -929,6 +941,65 @@ export class ClBattleArenaScene {
     }
     
     /**
+     * 🎨 为按钮添加交互反馈效果 (悬停高亮 + 点击缩放 + 音效)
+     */
+    private addButtonInteraction(btn: Button, baseColor: string): void {
+        // 解析基础颜色并创建高亮版本
+        const highlightColor = this.lightenColor(baseColor, 20);
+        const pressColor = this.darkenColor(baseColor, 15);
+        
+        // 悬停效果
+        btn.onPointerEnterObservable.add(() => {
+            btn.background = highlightColor;
+            btn.scaleX = 1.05;
+            btn.scaleY = 1.05;
+        });
+        
+        btn.onPointerOutObservable.add(() => {
+            btn.background = baseColor;
+            btn.scaleX = 1.0;
+            btn.scaleY = 1.0;
+        });
+        
+        // 点击效果 + 音效
+        btn.onPointerDownObservable.add(() => {
+            btn.background = pressColor;
+            btn.scaleX = 0.95;
+            btn.scaleY = 0.95;
+            // 🔊 播放点击音效
+            this.soundManager.playClick();
+        });
+        
+        btn.onPointerUpObservable.add(() => {
+            btn.background = highlightColor;
+            btn.scaleX = 1.05;
+            btn.scaleY = 1.05;
+        });
+    }
+    
+    /**
+     * 使颜色变亮
+     */
+    private lightenColor(hex: string, percent: number): string {
+        const num = parseInt(hex.replace('#', ''), 16);
+        const r = Math.min(255, (num >> 16) + Math.round(255 * percent / 100));
+        const g = Math.min(255, ((num >> 8) & 0x00FF) + Math.round(255 * percent / 100));
+        const b = Math.min(255, (num & 0x0000FF) + Math.round(255 * percent / 100));
+        return `#${(r << 16 | g << 8 | b).toString(16).padStart(6, '0')}`;
+    }
+    
+    /**
+     * 使颜色变暗
+     */
+    private darkenColor(hex: string, percent: number): string {
+        const num = parseInt(hex.replace('#', ''), 16);
+        const r = Math.max(0, (num >> 16) - Math.round(255 * percent / 100));
+        const g = Math.max(0, ((num >> 8) & 0x00FF) - Math.round(255 * percent / 100));
+        const b = Math.max(0, (num & 0x0000FF) - Math.round(255 * percent / 100));
+        return `#${(r << 16 | g << 8 | b).toString(16).padStart(6, '0')}`;
+    }
+    
+    /**
      * 创建横屏模式的操作按钮 (垂直排列)
      */
     private createLandscapeButtons(container: StackPanel): void {
@@ -943,6 +1014,7 @@ export class ClBattleArenaScene {
         this.summonBtn.fontSize = fontSize;
         this.summonBtn.color = 'white';
         this.summonBtn.background = '#4CAF50';
+        this.addButtonInteraction(this.summonBtn, '#4CAF50');
         this.summonBtn.onPointerClickObservable.add(() => this.testSummon());
         container.addControl(this.summonBtn);
         
@@ -953,6 +1025,7 @@ export class ClBattleArenaScene {
         this.attackBtn.fontSize = fontSize;
         this.attackBtn.color = 'white';
         this.attackBtn.background = '#FF5722';
+        this.addButtonInteraction(this.attackBtn, '#FF5722');
         this.attackBtn.onPointerClickObservable.add(() => this.handleAttackClick());
         container.addControl(this.attackBtn);
         
@@ -963,6 +1036,7 @@ export class ClBattleArenaScene {
         this.spellBtn.fontSize = fontSize;
         this.spellBtn.color = 'white';
         this.spellBtn.background = '#3498db';
+        this.addButtonInteraction(this.spellBtn, '#3498db');
         this.spellBtn.onPointerClickObservable.add(() => this.useSpellCard());
         container.addControl(this.spellBtn);
         
@@ -973,6 +1047,7 @@ export class ClBattleArenaScene {
         this.trapBtn.fontSize = fontSize;
         this.trapBtn.color = 'white';
         this.trapBtn.background = '#9932CC';
+        this.addButtonInteraction(this.trapBtn, '#9932CC');
         this.trapBtn.onPointerClickObservable.add(() => this.setTrapCard());
         container.addControl(this.trapBtn);
         
@@ -983,6 +1058,7 @@ export class ClBattleArenaScene {
         this.phaseBtn.fontSize = fontSize;
         this.phaseBtn.color = 'white';
         this.phaseBtn.background = '#2196F3';
+        this.addButtonInteraction(this.phaseBtn, '#2196F3');
         this.phaseBtn.onPointerClickObservable.add(() => this.advancePhase());
         container.addControl(this.phaseBtn);
         
@@ -993,6 +1069,7 @@ export class ClBattleArenaScene {
         endBtn.fontSize = fontSize;
         endBtn.color = 'white';
         endBtn.background = '#f44336';
+        this.addButtonInteraction(endBtn, '#f44336');
         endBtn.onPointerClickObservable.add(() => this.end(true));
         container.addControl(endBtn);
         
@@ -1020,6 +1097,7 @@ export class ClBattleArenaScene {
         this.summonBtn.background = '#4CAF50';
         this.summonBtn.paddingLeft = '5px';
         this.summonBtn.paddingRight = '5px';
+        this.addButtonInteraction(this.summonBtn, '#4CAF50');
         this.summonBtn.onPointerClickObservable.add(() => this.testSummon());
         container.addControl(this.summonBtn);
         
@@ -1031,6 +1109,7 @@ export class ClBattleArenaScene {
         this.tributeBtn.background = '#9b59b6';
         this.tributeBtn.paddingLeft = '5px';
         this.tributeBtn.paddingRight = '5px';
+        this.addButtonInteraction(this.tributeBtn, '#9b59b6');
         this.tributeBtn.onPointerClickObservable.add(() => this.startTributeSummon());
         container.addControl(this.tributeBtn);
         
@@ -1042,6 +1121,7 @@ export class ClBattleArenaScene {
         this.attackBtn.background = '#FF5722';
         this.attackBtn.paddingLeft = '5px';
         this.attackBtn.paddingRight = '5px';
+        this.addButtonInteraction(this.attackBtn, '#FF5722');
         this.attackBtn.onPointerClickObservable.add(() => this.handleAttackClick());
         container.addControl(this.attackBtn);
         
@@ -1053,6 +1133,7 @@ export class ClBattleArenaScene {
         this.spellBtn.background = '#3498db';
         this.spellBtn.paddingLeft = '5px';
         this.spellBtn.paddingRight = '5px';
+        this.addButtonInteraction(this.spellBtn, '#3498db');
         this.spellBtn.onPointerClickObservable.add(() => this.useSpellCard());
         container.addControl(this.spellBtn);
         
@@ -1064,6 +1145,7 @@ export class ClBattleArenaScene {
         this.trapBtn.background = '#9932CC';
         this.trapBtn.paddingLeft = '5px';
         this.trapBtn.paddingRight = '5px';
+        this.addButtonInteraction(this.trapBtn, '#9932CC');
         this.trapBtn.onPointerClickObservable.add(() => this.setTrapCard());
         container.addControl(this.trapBtn);
         
@@ -1075,6 +1157,7 @@ export class ClBattleArenaScene {
         this.positionBtn.background = '#1abc9c';
         this.positionBtn.paddingLeft = '5px';
         this.positionBtn.paddingRight = '5px';
+        this.addButtonInteraction(this.positionBtn, '#1abc9c');
         this.positionBtn.onPointerClickObservable.add(() => this.toggleMonsterPosition());
         container.addControl(this.positionBtn);
         
@@ -1086,6 +1169,7 @@ export class ClBattleArenaScene {
         this.directAttackBtn.background = '#e74c3c';
         this.directAttackBtn.paddingLeft = '5px';
         this.directAttackBtn.paddingRight = '5px';
+        this.addButtonInteraction(this.directAttackBtn, '#e74c3c');
         this.directAttackBtn.onPointerClickObservable.add(() => this.tryDirectAttack());
         container.addControl(this.directAttackBtn);
         
@@ -1097,6 +1181,7 @@ export class ClBattleArenaScene {
         this.phaseBtn.background = '#2196F3';
         this.phaseBtn.paddingLeft = '5px';
         this.phaseBtn.paddingRight = '5px';
+        this.addButtonInteraction(this.phaseBtn, '#2196F3');
         this.phaseBtn.onPointerClickObservable.add(() => this.advancePhase());
         container.addControl(this.phaseBtn);
         
@@ -1108,6 +1193,7 @@ export class ClBattleArenaScene {
         endBtn.background = '#f44336';
         endBtn.paddingLeft = '5px';
         endBtn.paddingRight = '5px';
+        this.addButtonInteraction(endBtn, '#f44336');
         endBtn.onPointerClickObservable.add(() => this.end(true));
         container.addControl(endBtn);
     }
@@ -1222,6 +1308,8 @@ export class ClBattleArenaScene {
         
         // 祭品召唤不算通常召唤
         this.showMessage(`🔮 祭品召唤成功! 召唤了【${monster.name}】`);
+        // 🔊 播放召唤音效
+        this.soundManager.playSummon();
         this.updateButtonStates();
     }
 
@@ -1578,6 +1666,8 @@ export class ClBattleArenaScene {
                 
                 // 发动陷阱
                 this.showMessage(`⚡ 发动陷阱【${trap.config.name}】!`);
+                // 🔊 播放陷阱触发音效
+                this.soundManager.playTrap();
                 
                 const result = this.executeTrapEffects(trap.config, attackerSlot);
                 
@@ -1906,6 +1996,13 @@ export class ClBattleArenaScene {
         const resultText = victory ? '🎉 胜利!' : '💀 失败!';
         this.showMessage(`${resultText} ${reason}`);
         
+        // 🔊 播放胜利/失败音效
+        if (victory) {
+            this.soundManager.playVictory();
+        } else {
+            this.soundManager.playDefeat();
+        }
+        
         // 延迟结束，让玩家看到结果
         setTimeout(() => this.end(victory), 2500);
     }
@@ -2010,6 +2107,8 @@ export class ClBattleArenaScene {
             const card = this.deck.pop()!;
             this.hand.push(card);
             this.showMessage(`🎴 抽到【${card.name}】!`);
+            // 🔊 播放抽卡音效
+            this.soundManager.playDraw();
         }
         
         this.updateDeckCountDisplay();
@@ -2185,6 +2284,8 @@ export class ClBattleArenaScene {
             this.updateButtonStates();
             
             this.showMessage(`召唤【${card.name}】成功!`);
+            // 🔊 播放召唤音效
+            this.soundManager.playSummon();
             return true;
         }
         
@@ -2271,6 +2372,9 @@ export class ClBattleArenaScene {
      * 阶段变化时的处理
      */
     private onPhaseChange(): void {
+        // 🔊 播放阶段转换音效
+        this.soundManager.playPhase();
+        
         // 抽牌阶段处理 - 抽1张卡
         if (this.turnState.phase === 'draw' && this.turnState.isPlayerTurn) {
             // 第一回合不抽牌 (已有初始5张)
@@ -2784,6 +2888,18 @@ export class ClBattleArenaScene {
             return;
         }
         
+        // ⚔️ 获取攻击者和目标的世界位置
+        const attackerPos = attacker.getPosition().add(this.root.position);
+        const targetPos = target.getPosition().add(this.root.position);
+        
+        // ⚔️ 播放攻击特效 (能量球飞向目标)
+        if (this.battleEffects) {
+            this.battleEffects.playAttackEffect(attackerPos.add(new Vector3(0, 1, 0)), targetPos.add(new Vector3(0, 1, 0)));
+        }
+        
+        // 🔊 播放攻击音效
+        this.soundManager.playAttack();
+        
         // 🌍 使用地形加成计算实际数值
         const attackerAtk = this.getEffectiveAtk(attacker, this.config.playerTerrain);
         const targetPosition = target.data.position;
@@ -2797,6 +2913,12 @@ export class ClBattleArenaScene {
                 // 攻击力 > 守备力，消灭守备怪兽，但不造成战斗伤害
                 this.showMessage(`【${attacker.data.name}】突破【${target.data.name}】的防御!`);
                 
+                // ⚔️ 播放击杀特效
+                if (this.battleEffects) {
+                    this.battleEffects.playDamageEffect(targetPos.add(new Vector3(0, 1, 0)), 0);
+                    this.battleEffects.shakeCamera(0.3, 200);
+                }
+                
                 target.dispose();
                 this.enemyMonsters[targetSlot] = null;
                 this.sendToGraveyard({ id: target.data.id, name: target.data.name, type: 'monster' });
@@ -2806,6 +2928,12 @@ export class ClBattleArenaScene {
                 // 攻击力 < 守备力，攻击方受差值伤害，双方怪兽不消灭
                 const counterDamage = -damage;
                 this.showMessage(`【${attacker.data.name}】攻击被弹开! 反伤 ${counterDamage}`);
+                
+                // ⚔️ 播放反伤特效 (攻击者被弹开)
+                if (this.battleEffects) {
+                    this.battleEffects.playDamageEffect(attackerPos.add(new Vector3(0, 1, 0)), counterDamage);
+                    this.battleEffects.shakeCamera(0.2, 150);
+                }
                 
                 this.dealDamageToPlayer(counterDamage);
                 
@@ -2823,6 +2951,12 @@ export class ClBattleArenaScene {
                 // 攻击者获胜，超出的伤害给敌方玩家
                 this.showMessage(`【${attacker.data.name}】击败【${target.data.name}】! 溢出伤害 ${damage}`);
                 
+                // ⚔️ 播放击杀特效
+                if (this.battleEffects) {
+                    this.battleEffects.playDamageEffect(targetPos.add(new Vector3(0, 1, 0)), damage);
+                    this.battleEffects.shakeCamera(0.4, 250);
+                }
+                
                 target.dispose();
                 this.enemyMonsters[targetSlot] = null;
                 this.sendToGraveyard({ id: target.data.id, name: target.data.name, type: 'monster' });
@@ -2835,6 +2969,12 @@ export class ClBattleArenaScene {
                 const counterDamage = -damage;
                 this.showMessage(`【${attacker.data.name}】攻击失败! 反伤 ${counterDamage}`);
                 
+                // ⚔️ 播放反杀特效
+                if (this.battleEffects) {
+                    this.battleEffects.playDamageEffect(attackerPos.add(new Vector3(0, 1, 0)), counterDamage);
+                    this.battleEffects.shakeCamera(0.4, 250);
+                }
+                
                 attacker.dispose();
                 this.playerMonsters[attackerSlot] = null;
                 
@@ -2844,6 +2984,14 @@ export class ClBattleArenaScene {
             } else {
                 // 同归于尽
                 this.showMessage('同归于尽!');
+                
+                // ⚔️ 播放双方击杀特效
+                if (this.battleEffects) {
+                    this.battleEffects.playDamageEffect(attackerPos.add(new Vector3(0, 1, 0)), 0);
+                    this.battleEffects.playDamageEffect(targetPos.add(new Vector3(0, 1, 0)), 0);
+                    this.battleEffects.shakeCamera(0.5, 300);
+                }
+                
                 attacker.dispose();
                 target.dispose();
                 this.playerMonsters[attackerSlot] = null;
@@ -2974,6 +3122,18 @@ export class ClBattleArenaScene {
             return;
         }
         
+        // ⚔️ 获取位置播放攻击特效
+        const attackerPos = attacker.getPosition().add(this.root.position);
+        const targetPos = target.getPosition().add(this.root.position);
+        
+        // ⚔️ 播放攻击特效 (能量球飞向目标)
+        if (this.battleEffects) {
+            this.battleEffects.playAttackEffect(attackerPos.add(new Vector3(0, 1, 0)), targetPos.add(new Vector3(0, 1, 0)));
+        }
+        
+        // 🔊 播放攻击音效
+        this.soundManager.playAttack();
+        
         // 🌍 使用地形加成计算实际数值
         const attackerAtk = this.getEffectiveAtk(attacker, this.config.enemyTerrain);
         const targetAtk = this.getEffectiveAtk(target, this.config.playerTerrain);
@@ -2982,6 +3142,13 @@ export class ClBattleArenaScene {
         if (damage > 0) {
             // 敌方获胜，溢出伤害给玩家
             this.showMessage(`【${attacker.data.name}】击败【${target.data.name}】! 溢出伤害 ${damage}`);
+            
+            // ⚔️ 播放击杀特效
+            if (this.battleEffects) {
+                this.battleEffects.playDamageEffect(targetPos.add(new Vector3(0, 1, 0)), damage);
+                this.battleEffects.shakeCamera(0.4, 250);
+            }
+            
             target.dispose();
             this.playerMonsters[targetSlot] = null;
             this.dealDamageToPlayer(damage);
@@ -2989,11 +3156,26 @@ export class ClBattleArenaScene {
             // 玩家获胜，反伤给敌方
             const counterDamage = -damage;
             this.showMessage(`【${attacker.data.name}】攻击失败! 反伤 ${counterDamage}`);
+            
+            // ⚔️ 播放反杀特效
+            if (this.battleEffects) {
+                this.battleEffects.playDamageEffect(attackerPos.add(new Vector3(0, 1, 0)), counterDamage);
+                this.battleEffects.shakeCamera(0.4, 250);
+            }
+            
             attacker.dispose();
             this.enemyMonsters[attackerSlot] = null;
             this.dealDamageToEnemy(counterDamage);
         } else {
             this.showMessage('同归于尽!');
+            
+            // ⚔️ 播放双方击杀特效
+            if (this.battleEffects) {
+                this.battleEffects.playDamageEffect(attackerPos.add(new Vector3(0, 1, 0)), 0);
+                this.battleEffects.playDamageEffect(targetPos.add(new Vector3(0, 1, 0)), 0);
+                this.battleEffects.shakeCamera(0.5, 300);
+            }
+            
             attacker.dispose();
             target.dispose();
             this.playerMonsters[targetSlot] = null;

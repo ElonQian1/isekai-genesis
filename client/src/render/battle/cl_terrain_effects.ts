@@ -284,6 +284,12 @@ export class ClTerrainEffects {
         
         this.dispose();
         
+        // 保存当前地形类型用于刷新
+        this.currentPlayerTerrain = playerTerrain;
+        this.currentEnemyTerrain = enemyTerrain;
+        this.currentPlayerEmitter = playerEmitter;
+        this.currentEnemyEmitter = enemyEmitter;
+        
         // 创建玩家区域粒子
         this.playerParticles = this.createParticleSystem(
             'player_terrain_fx',
@@ -304,6 +310,11 @@ export class ClTerrainEffects {
         
         console.log(`✨ 地形特效已创建: 玩家[${playerTerrain}] 敌方[${enemyTerrain}] (性能等级: ${this.performanceLevel})`);
     }
+    
+    /** 当前玩家发射器 */
+    private currentPlayerEmitter: AbstractMesh | Vector3 | null = null;
+    /** 当前敌方发射器 */
+    private currentEnemyEmitter: AbstractMesh | Vector3 | null = null;
 
     /**
      * 创建单个粒子系统
@@ -380,9 +391,24 @@ export class ClTerrainEffects {
      * 刷新粒子系统 (性能降级后)
      */
     private refreshParticles(): void {
-        // TODO: 重新创建粒子系统
-        console.log(`🔄 粒子系统刷新 (新性能等级: ${this.performanceLevel})`);
+        // 如果有保存的发射器，重新创建粒子系统
+        if (this.currentPlayerEmitter && this.currentEnemyEmitter) {
+            this.dispose();
+            this.create(
+                this.currentPlayerTerrain,
+                this.currentEnemyTerrain,
+                this.currentPlayerEmitter,
+                this.currentEnemyEmitter
+            );
+        }
+        
+        console.log(`🔄 粒子系统已刷新 (性能等级: ${this.performanceLevel})`);
     }
+    
+    /** 当前玩家地形 */
+    private currentPlayerTerrain: TerrainType = 'plain';
+    /** 当前敌方地形 */
+    private currentEnemyTerrain: TerrainType = 'plain';
 
     /**
      * 启用/禁用粒子特效

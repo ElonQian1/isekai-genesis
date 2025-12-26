@@ -8,9 +8,15 @@
 //! - 公共卡池展示 5 张卡
 //! - 玩家消耗行动力获取卡牌
 //! - 卡池自动补充
+//!
+//! ## 抽卡接口
+//! 实现 `GcCardAcquisition` trait，支持运行时动态切换抽卡方式
 
 use serde::{Deserialize, Serialize};
 use crate::GcCard;
+use crate::gc_card_acquisition::{
+    GcCardAcquisition, GcAcquisitionContext, GcAcquisitionSlot, GcAcquisitionResult
+};
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 
@@ -145,6 +151,82 @@ impl GcCardPool {
     /// 弃牌堆数量
     pub fn gc_discard_pile_count(&self) -> usize {
         self.discard_pile.len()
+    }
+}
+
+// =============================================================================
+// 实现 GcCardAcquisition trait
+// =============================================================================
+
+impl GcCardAcquisition for GcCardPool {
+    type Item = GcCard;
+    
+    fn acquire(&mut self, slot_index: usize, ctx: &mut GcAcquisitionContext) -> GcAcquisitionResult<Self::Item> {
+        // 检查槽位有效性
+        if slot_index >= self.display.len() {
+            return GcAcquisitionResult::failure("无效槽位");
+        }
+        
+        // 游戏王模式：检查行动力 (用 gold 字段代表行动力)
+        let cost = self.config.acquire_cost;
+        if !ctx.can_afford(cost) {
+            return GcAcquisitionResult::failure("行动力不足");
+        }
+        
+        // 扣除行动力
+        ctx.spend(cost);
+        
+        // 获取卡牌
+        let card = self.display.remove(slot_index);
+        self.gc_refill_display();
+        
+        GcAcquisitionResult::success(card, cost)
+    }
+    
+    fn can_acquire(&self, slot_index: usize, ctx: &GcAcquisitionContext) -> bool {
+        slot_index < self.display.len() && ctx.can_afford(self.config.acquire_cost)
+    }
+    
+    fn get_available_slots(&self) -> Vec<GcAcquisitionSlot> {
+        self.display.iter()
+            .enumerate()
+            .map(|(i, card)| {
+                GcAcquisitionSlot::new(
+                    i,
+                    &card.id,
+                    &card.name,
+                    self.config.acquire_cost,
+                    1, // 游戏王模式没有星级概念
+                ).with_description(&format!("{:?}", card.card_type))
+            })
+            .collect()
+    }
+    
+    fn refresh(&mut self, ctx: &mut GcAcquisitionContext, free: bool) -> bool {
+        let cost = if free { 0 } else { self.config.refresh_cost };
+        
+        if !free && !ctx.can_afford(cost) {
+            return false;
+        }
+        
+        if !free {
+            ctx.spend(cost);
+        }
+        
+        self.gc_refresh_display();
+        true
+    }
+    
+    fn refresh_cost(&self) -> u32 {
+        self.config.refresh_cost
+    }
+    
+    fn slot_count(&self) -> usize {
+        self.config.display_size
+    }
+    
+    fn mode_name(&self) -> &'static str {
+        "决斗王模式"
     }
 }
 

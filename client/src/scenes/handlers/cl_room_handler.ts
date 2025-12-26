@@ -13,6 +13,7 @@
 
 import { ClGameModeManager, ClGameMode } from '../../core';
 import { ClNetworkBattleManager } from '../../network/cl_network_battle';
+import { ClLobbyService, cl_getLobbyService } from '../../network/cl_lobby_service';
 import { ClLobbyUI, ClRoomUI, ClRoomData } from '../../ui/cl_lobby_ui';
 import { ClMessageUI } from '../../ui/cl_message_ui';
 
@@ -45,6 +46,7 @@ export interface ClRoomHandlerCallbacks {
 export class ClRoomHandler {
     private gameModeManager: ClGameModeManager;
     private networkManager: ClNetworkBattleManager | null;
+    private lobbyService: ClLobbyService | null = null;
     private lobbyUI: ClLobbyUI | null;
     private roomUI: ClRoomUI | null;
     private messageUI: ClMessageUI | null;
@@ -58,6 +60,40 @@ export class ClRoomHandler {
         this.roomUI = config.roomUI;
         this.messageUI = config.messageUI;
         this.isOnline = config.isOnline;
+        
+        // 初始化大厅服务
+        if (this.isOnline) {
+            this.initLobbyService();
+        }
+    }
+    
+    /**
+     * 初始化大厅服务
+     */
+    private initLobbyService(): void {
+        try {
+            this.lobbyService = cl_getLobbyService();
+            
+            // 设置房间列表更新回调
+            this.lobbyService.setCallbacks({
+                onRoomListUpdate: (rooms) => {
+                    const roomData: ClRoomData[] = rooms.map(r => ({
+                        id: r.id,
+                        name: r.name,
+                        playerCount: r.player_count,
+                        maxPlayers: r.max_players,
+                        status: r.status === 'waiting' ? 'waiting' : 'playing'
+                    }));
+                    this.lobbyUI?.updateRoomList(roomData);
+                },
+                onError: (code, message) => {
+                    this.messageUI?.error(`${code}: ${message}`);
+                }
+            });
+        } catch (e) {
+            console.warn('大厅服务初始化失败:', e);
+            this.lobbyService = null;
+        }
     }
 
     // =========================================================================
@@ -147,13 +183,28 @@ export class ClRoomHandler {
             return;
         }
         
-        // TODO: 实际从服务器获取房间列表
-        const mockRooms: ClRoomData[] = [
-            { id: 'room_1', name: '测试房间 1', playerCount: 2, maxPlayers: 4, status: 'waiting' },
-            { id: 'room_2', name: '新手欢迎', playerCount: 1, maxPlayers: 4, status: 'waiting' },
-        ];
-        
-        this.lobbyUI?.updateRoomList(mockRooms);
+        // 使用大厅服务获取房间列表
+        if (this.lobbyService) {
+            // 发送请求到服务器
+            this.lobbyService.refreshRoomList();
+            
+            // 同时显示本地缓存的列表(如果有)
+            const cachedRooms = this.lobbyService.getRoomList();
+            if (cachedRooms.length > 0) {
+                const roomData: ClRoomData[] = cachedRooms.map(r => ({
+                    id: r.id,
+                    name: r.name,
+                    playerCount: r.player_count,
+                    maxPlayers: r.max_players,
+                    status: r.status === 'waiting' ? 'waiting' : 'playing'
+                }));
+                this.lobbyUI?.updateRoomList(roomData);
+            }
+        } else {
+            // 服务不可用，显示提示
+            this.messageUI?.warning('网络服务不可用，无法获取房间列表');
+            this.lobbyUI?.updateRoomList([]);
+        }
     }
 
     /**
