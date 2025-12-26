@@ -494,14 +494,16 @@ pub struct GsClientLogsRequest {
     pub logs: Vec<GsLogEntry>,
 }
 
-/// 日志保存目录 (相对于 cargo 运行目录，即项目根目录)
-const LOG_DIR: &str = "文档/日志";
+/// 获取日志保存目录 (从环境变量读取，默认为 "logs")
+fn gs_get_log_dir() -> PathBuf {
+    PathBuf::from(std::env::var("LOG_DIR").unwrap_or_else(|_| "logs".to_string()))
+}
 
 /// 保存前端日志
 pub async fn gs_save_client_logs(
     Json(payload): Json<GsClientLogsRequest>,
 ) -> Result<Json<Value>, GsError> {
-    let log_dir = PathBuf::from(LOG_DIR);
+    let log_dir = gs_get_log_dir();
     
     // 确保目录存在
     if !log_dir.exists() {
@@ -538,7 +540,7 @@ pub async fn gs_save_client_logs(
 
 /// 清空前端日志
 pub async fn gs_clear_client_logs() -> Result<Json<Value>, GsError> {
-    let log_file = PathBuf::from(LOG_DIR).join("client.log");
+    let log_file = gs_get_log_dir().join("client.log");
     
     if log_file.exists() {
         std::fs::write(&log_file, "")
@@ -553,7 +555,7 @@ pub async fn gs_clear_client_logs() -> Result<Json<Value>, GsError> {
 
 /// 获取前端日志（用于 AI 代理查看）
 pub async fn gs_get_client_logs() -> Result<String, GsError> {
-    let log_file = PathBuf::from(LOG_DIR).join("client.log");
+    let log_file = gs_get_log_dir().join("client.log");
     
     if !log_file.exists() {
         return Ok("(日志文件为空)".to_string());

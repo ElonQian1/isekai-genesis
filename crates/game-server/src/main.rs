@@ -27,23 +27,28 @@ async fn main() -> anyhow::Result<()> {
     dotenvy::dotenv().ok();
     
     // 初始化日志 - 同时输出到控制台和文件
-    let log_dir = std::path::Path::new("文档/日志");
+    // 从环境变量读取日志目录，默认为 "logs" (生产环境友好)
+    let log_dir_str = std::env::var("LOG_DIR").unwrap_or_else(|_| "logs".to_string());
+    let log_dir = std::path::Path::new(&log_dir_str);
     if !log_dir.exists() {
         std::fs::create_dir_all(log_dir)?;
     }
     
-    // 开发模式：每次启动时清空旧日志
+    // 开发模式：每次启动时清空旧日志 (可通过 CLEAR_LOGS=false 禁用)
+    let clear_logs = std::env::var("CLEAR_LOGS").map(|v| v != "false").unwrap_or(true);
     let server_log = log_dir.join("server.log");
     let client_log = log_dir.join("client.log");
-    if server_log.exists() {
-        let _ = std::fs::write(&server_log, "");
-    }
-    if client_log.exists() {
-        let _ = std::fs::write(&client_log, "");
+    if clear_logs {
+        if server_log.exists() {
+            let _ = std::fs::write(&server_log, "");
+        }
+        if client_log.exists() {
+            let _ = std::fs::write(&client_log, "");
+        }
     }
     
     // 文件日志 appender (非阻塞)
-    let file_appender = tracing_appender::rolling::never("文档/日志", "server.log");
+    let file_appender = tracing_appender::rolling::never(&log_dir_str, "server.log");
     let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
     
     // 环境过滤器
@@ -70,7 +75,7 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     tracing::info!("🚀 启动游戏服务器...");
-    tracing::info!("📝 日志文件: 文档/日志/server.log");
+    tracing::info!("📝 日志目录: {}", log_dir_str);
 
     // 创建应用状态
     let state = GsAppState::gs_new().await?;

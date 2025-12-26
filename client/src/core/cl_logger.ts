@@ -28,8 +28,9 @@ const logBuffer: LogEntry[] = [];
 const MAX_BUFFER_SIZE = 100;
 const FLUSH_INTERVAL = 3000; // 3秒刷新一次
 
-// 服务器地址
-const LOG_SERVER_URL = 'http://localhost:3000/api/logs/client';
+// 服务器地址 (从 Vite 环境变量读取，支持本地开发和生产部署)
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const LOG_SERVER_URL = `${API_BASE_URL}/api/logs/client`;
 
 // ============================================================================
 // 指数退避 (Exponential Backoff) 配置

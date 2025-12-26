@@ -50,8 +50,8 @@ import { ClBattleState } from './cl_battle_manager';
 import { ClWorldSceneController, ClEncounterData } from './scenes/cl_world_scene_controller';
 import { ClBattleSceneController } from './scenes/cl_battle_scene_controller';
 
-// 处理器
-import { ClAuthHandler, ClRoomHandler } from './scenes/handlers';
+// 处理器 (使用正式版本，不是占位符)
+import { ClAuthHandler, ClRoomHandler } from './scenes/handlers/index';
 
 // =============================================================================
 // 游戏阶段 (扩展版)
